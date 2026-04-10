@@ -23,6 +23,27 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
+
+
+
+        //что бы удалить старую бд при модификациях бд
+        public void DeleteDatabase()
+        {
+            if (File.Exists(_dbPath))
+            {
+                File.Delete(_dbPath);
+            }
+        }
+        //
+
+
+
+
+
+
+
+
+
         private async Task Init()
         {
             if (_database != null)
@@ -31,6 +52,7 @@ namespace MauiApp1.Services  // Исправлено пространство и
             _database = new SQLiteAsyncConnection(_dbPath);
             await _database.CreateTableAsync<User>();
             await _database.CreateTableAsync<EmbroideryPattern>();
+            await _database.CreateTableAsync<EmbroideryColor>();
         }
 
         private string HashPassword(string password)
@@ -150,6 +172,78 @@ namespace MauiApp1.Services  // Исправлено пространство и
             await Init();
             return await _database.Table<User>().ToListAsync();
         }
+
+        // Добавьте в класс DatabaseService новые методы
+
+        // Сохранение цветов схемы
+        public async Task<bool> SavePatternColors(int patternId, List<EmbroideryColor> colors)
+        {
+            try
+            {
+                await Init();
+
+                foreach (var color in colors)
+                {
+                    color.PatternId = patternId;
+                    await _database.InsertAsync(color);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        //// Получение цветов схемы
+        //public async Task<List<EmbroideryColor>> GetPatternColors(int patternId)
+        //{
+        //    await Init();
+        //    return await _database.Table<EmbroideryColor>()
+        //        .Where(c => c.PatternId == patternId)
+        //        .OrderBy(c => c.Symbol)
+        //        .ToListAsync();
+        //}
+
+        //// Обновление количества цветов в схеме
+        //public async Task UpdatePatternColorCount(int patternId, int colorCount)
+        //{
+        //    await Init();
+        //    var pattern = await _database.Table<EmbroideryPattern>()
+        //        .FirstOrDefaultAsync(p => p.Id == patternId);
+
+        //    if (pattern != null)
+        //    {
+        //        pattern.ColorCount = colorCount;
+        //        await _database.UpdateAsync(pattern);
+        //    }
+        //}
+        // Получение цветов схемы
+        public async Task<List<EmbroideryColor>> GetPatternColors(int patternId)
+        {
+            await Init();
+            return await _database.Table<EmbroideryColor>()
+                .Where(c => c.PatternId == patternId)
+                .OrderBy(c => c.Symbol)
+                .ToListAsync();
+        }
+
+        // Обновление количества цветов в схеме
+        public async Task UpdatePatternColorCount(int patternId, int colorCount)
+        {
+            await Init();
+            var pattern = await _database.Table<EmbroideryPattern>()
+                .FirstOrDefaultAsync(p => p.Id == patternId);  // Исправлено: p вместо c, и добавлено Async
+
+            if (pattern != null)
+            {
+                pattern.ColorCount = colorCount;
+                await _database.UpdateAsync(pattern);  // Исправлено: _database вместо database
+            }
+        }
+
+
         #region Методы для работы со схемами вышивки
 
         // Сохранение схемы

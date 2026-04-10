@@ -75,65 +75,86 @@ namespace MauiApp1.Views
             EmptyLabel.IsVisible = _filteredPatterns.Count == 0;
         }
 
+        //    private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
+        //    {
+        //        if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
+        //        {
+        //            // Спрашиваем, что делать со схемой
+        //            var action = await DisplayActionSheet(
+        //                $"Схема: {selectedPattern.Name}",
+        //                "Отмена",
+        //                null,
+        //                "Посмотреть схему",
+        //                "Удалить схему");
+
+        //            if (action == "Удалить схему")
+        //            {
+        //                var confirm = await DisplayAlert("Удаление",
+        //                    $"Вы уверены, что хотите удалить схему '{selectedPattern.Name}'?",
+        //                    "Да", "Нет");
+
+        //                if (confirm)
+        //                {
+        //                    var pattern = new EmbroideryPattern
+        //                    {
+        //                        Id = selectedPattern.Id,
+        //                        ImageFileName = Path.GetFileName(selectedPattern.ImagePath)
+        //                    };
+
+        //                    var deleted = await _databaseService.DeletePattern(pattern);
+        //                    if (deleted)
+        //                    {
+        //                        await DisplayAlert("Успех", "Схема удалена", "OK");
+        //                        LoadPatterns();
+        //                    }
+        //                    else
+        //                    {
+        //                        await DisplayAlert("Ошибка", "Не удалось удалить схему", "OK");
+        //                    }
+        //                }
+        //            }
+        //            else if (action == "Посмотреть схему")
+        //            {
+        //                // Здесь будет открытие схемы
+        //                await DisplayAlert("Просмотр", "Функция просмотра схемы будет добавлена позже", "OK");
+        //            }
+        //        }
+
+        //        // Сбрасываем выделение
+        //        PatternsCollection.SelectedItem = null;
+        //    }
+        //}
         private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
         {
             if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
             {
-                // Спрашиваем, что делать со схемой
-                var action = await DisplayActionSheet(
-                    $"Схема: {selectedPattern.Name}",
-                    "Отмена",
-                    null,
-                    "Посмотреть схему",
-                    "Удалить схему");
-
-                if (action == "Удалить схему")
+                // Открываем детали схемы
+                var pattern = new EmbroideryPattern
                 {
-                    var confirm = await DisplayAlert("Удаление",
-                        $"Вы уверены, что хотите удалить схему '{selectedPattern.Name}'?",
-                        "Да", "Нет");
+                    Id = selectedPattern.Id,
+                    Name = selectedPattern.Name,
+                    Width = selectedPattern.Width,
+                    Height = selectedPattern.Height,
+                    ColorCount = selectedPattern.ColorCount,
+                    CreatedAt = selectedPattern.CreatedAt,
+                    ImageFileName = Path.GetFileName(selectedPattern.ImagePath)
+                };
 
-                    if (confirm)
-                    {
-                        var pattern = new EmbroideryPattern
-                        {
-                            Id = selectedPattern.Id,
-                            ImageFileName = Path.GetFileName(selectedPattern.ImagePath)
-                        };
-
-                        var deleted = await _databaseService.DeletePattern(pattern);
-                        if (deleted)
-                        {
-                            await DisplayAlert("Успех", "Схема удалена", "OK");
-                            LoadPatterns();
-                        }
-                        else
-                        {
-                            await DisplayAlert("Ошибка", "Не удалось удалить схему", "OK");
-                        }
-                    }
-                }
-                else if (action == "Посмотреть схему")
-                {
-                    // Здесь будет открытие схемы
-                    await DisplayAlert("Просмотр", "Функция просмотра схемы будет добавлена позже", "OK");
-                }
+                await Navigation.PushAsync(new PatternDetailsPage(pattern));
             }
 
-            // Сбрасываем выделение
             PatternsCollection.SelectedItem = null;
         }
-    }
 
-    public class PatternViewModel
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-        public int ColorCount { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public string ImagePath { get; set; }
-        public string Info { get; set; }
-    }
-}
+        public class PatternViewModel
+        {
+            public int Id { get; set; }
+            public string Name { get; set; }
+            public int Width { get; set; }
+            public int Height { get; set; }
+            public int ColorCount { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public string ImagePath { get; set; }
+            public string Info { get; set; }
+        }
+    }}

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using SkiaSharp.Views.Maui.Controls.Hosting;  // Добавьте эту директиву
 
 namespace MauiApp1
 {
@@ -9,14 +10,11 @@ namespace MauiApp1
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseSkiaSharp()  // ← ВАЖНО: добавляем SkiaSharp
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-                })
-                .ConfigureEssentials(essentials =>
-                {
-                    essentials.UseMapServiceToken("YOUR_TOKEN"); // Опционально
                 });
 
 #if DEBUG

@@ -65,7 +65,7 @@ namespace MauiApp1.Views
 
         private async void OnSavePatternClicked(object sender, EventArgs e)
         {
-            // Валидация
+            // Валидация (как была)
             if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
             {
                 MessageLabel.Text = "Введите название схемы";
@@ -92,14 +92,18 @@ namespace MauiApp1.Views
 
             try
             {
-                // Показываем индикатор загрузки
                 SaveButton.IsEnabled = false;
-                SaveButton.Text = "Сохранение...";
+                SaveButton.Text = "Обработка изображения...";
+
+                // Обрабатываем изображение
+                var processor = new ImageProcessor();
+                var colors = await processor.ProcessImage(_selectedImagePath, width, height);
+
+                SaveButton.Text = "Сохранение схемы...";
 
                 // Читаем файл в массив байтов
                 byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
 
-                // Создаем поток из байтов
                 using (var stream = new MemoryStream(imageBytes))
                 {
                     // Создаем схему
@@ -108,15 +112,25 @@ namespace MauiApp1.Views
                         Name = PatternNameEntry.Text,
                         Width = width,
                         Height = height,
-                        ColorCount = 0 // Позже рассчитаем реальное количество цветов
+                        ColorCount = colors.Count,
+                        CellSize = 10
                     };
 
                     var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream);
 
                     if (success)
                     {
-                        await DisplayAlert("Успех", $"Схема '{PatternNameEntry.Text}' успешно сохранена!", "OK");
-                        await Navigation.PopAsync(); // Возвращаемся в главное меню
+                        // Сохраняем цвета
+                        await _databaseService.SavePatternColors(patternId, colors);
+                        await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
+
+                        await DisplayAlert("Успех",
+                            $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
+                            $"Размер: {width} x {height} крестиков\n" +
+                            $"Количество цветов: {colors.Count}",
+                            "OK");
+
+                        await Navigation.PopAsync();
                     }
                     else
                     {
@@ -127,6 +141,7 @@ namespace MauiApp1.Views
             catch (Exception ex)
             {
                 MessageLabel.Text = $"Ошибка: {ex.Message}";
+                await DisplayAlert("Ошибка", ex.Message, "OK");
             }
             finally
             {
