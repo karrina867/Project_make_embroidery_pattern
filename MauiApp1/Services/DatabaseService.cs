@@ -9,10 +9,18 @@ namespace MauiApp1.Services  // Исправлено пространство и
     {
         private SQLiteAsyncConnection _database;
         private readonly string _dbPath;
+        private readonly string _imagesPath;
 
         public DatabaseService()
         {
-            _dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "authapp.db3");
+            _dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "embroidery.db3");
+            _imagesPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PatternImages");
+
+            // Создаем папку для изображений, если её нет
+            if (!Directory.Exists(_imagesPath))
+            {
+                Directory.CreateDirectory(_imagesPath);
+            }
         }
 
         private async Task Init()
@@ -22,6 +30,7 @@ namespace MauiApp1.Services  // Исправлено пространство и
 
             _database = new SQLiteAsyncConnection(_dbPath);
             await _database.CreateTableAsync<User>();
+            await _database.CreateTableAsync<EmbroideryPattern>();
         }
 
         private string HashPassword(string password)
@@ -141,5 +150,84 @@ namespace MauiApp1.Services  // Исправлено пространство и
             await Init();
             return await _database.Table<User>().ToListAsync();
         }
+        #region Методы для работы со схемами вышивки
+
+        // Сохранение схемы
+        // Сохранение схемы
+        public async Task<(bool success, string message, int patternId)> SavePattern(EmbroideryPattern pattern, Stream imageStream)
+        {
+            try
+            {
+                await Init();
+
+                // Генерируем уникальное имя для файла
+                var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
+                var fileName = $"{Guid.NewGuid()}_{safeName}.jpg";
+                var filePath = Path.Combine(_imagesPath, fileName);
+
+                // Сохраняем изображение - важно: не закрываем исходный поток
+                using (var fileStream = File.Create(filePath))
+                {
+                    // Сбрасываем позицию потока в начало
+                    if (imageStream.CanSeek)
+                    {
+                        imageStream.Position = 0;
+                    }
+                    await imageStream.CopyToAsync(fileStream);
+                    await fileStream.FlushAsync();
+                }
+
+                // Сохраняем информацию в БД
+                pattern.ImageFileName = fileName;
+                pattern.CreatedAt = DateTime.Now;
+
+                await _database.InsertAsync(pattern);
+
+                return (true, "Схема успешно сохранена", pattern.Id);
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Ошибка: {ex.Message}", 0);
+            }
+        }
+
+        // Получение всех схем
+        public async Task<List<EmbroideryPattern>> GetAllPatterns()
+        {
+            await Init();
+            return await _database.Table<EmbroideryPattern>().OrderByDescending(p => p.CreatedAt).ToListAsync();
+        }
+
+        // Получение пути к изображению схемы
+        public string GetImagePath(string imageFileName)
+        {
+            return Path.Combine(_imagesPath, imageFileName);
+        }
+
+        // Удаление схемы
+        public async Task<bool> DeletePattern(EmbroideryPattern pattern)
+        {
+            try
+            {
+                await Init();
+
+                // Удаляем файл изображения
+                var imagePath = GetImagePath(pattern.ImageFileName);
+                if (File.Exists(imagePath))
+                {
+                    File.Delete(imagePath);
+                }
+
+                // Удаляем запись из БД
+                await _database.DeleteAsync(pattern);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        #endregion
     }
 }

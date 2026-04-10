@@ -1,0 +1,30 @@
+using MauiApp1.Models;
+
+namespace MauiApp1.Views
+{
+    public partial class MainMenuPage : ContentPage
+    {
+        private User _currentUser;
+
+        public MainMenuPage(User user)
+        {
+            InitializeComponent();
+            _currentUser = user;
+        }
+
+        private async void OnCreatePatternClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new CreatePatternPage());
+        }
+
+        private async void OnMyPatternsClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new MyPatternsPage());
+        }
+
+        private async void OnLogoutClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new AuthPage());
+        }
+    }
+}

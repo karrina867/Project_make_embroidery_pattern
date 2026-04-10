@@ -1,5 +1,4 @@
-﻿using MauiApp1;  // Вместо MauiAuthApp
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 
 namespace MauiApp1
 {
@@ -14,6 +13,10 @@ namespace MauiApp1
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                })
+                .ConfigureEssentials(essentials =>
+                {
+                    essentials.UseMapServiceToken("YOUR_TOKEN"); // Опционально
                 });
 
 #if DEBUG

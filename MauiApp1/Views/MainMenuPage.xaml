@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MauiApp1.Views.MainMenuPage"
+             Title="Схемы вышивки">
+
+    <VerticalStackLayout Spacing="20" Padding="30" VerticalOptions="Center">
+
+        <Label Text="Вышивка крестиком" 
+               FontSize="28" 
+               FontAttributes="Bold"
+               HorizontalOptions="Center"/>
+
+        <Label Text="Создавайте схемы из любых изображений"
+               FontSize="16"
+               HorizontalOptions="Center"
+               TextColor="Gray"/>
+
+        <BoxView HeightRequest="2" BackgroundColor="LightGray" Margin="0,20"/>
+
+        <Button Text="➕ Создать новую схему" 
+                Clicked="OnCreatePatternClicked"
+                BackgroundColor="#4CAF50"
+                FontSize="18"
+                HeightRequest="60"/>
+
+        <Button Text="📋 Мои схемы" 
+                Clicked="OnMyPatternsClicked"
+                BackgroundColor="#2196F3"
+                FontSize="18"
+                HeightRequest="60"/>
+
+        <Button Text="🚪 Выйти" 
+                Clicked="OnLogoutClicked"
+                BackgroundColor="#9E9E9E"
+                FontSize="16"
+                HeightRequest="50"/>
+
+    </VerticalStackLayout>
+</ContentPage>

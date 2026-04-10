@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MauiApp1.Views.CreatePatternPage"
+             Title="Создание схемы">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20">
+
+            <Label Text="Название схемы" FontSize="16" FontAttributes="Bold"/>
+            <Entry x:Name="PatternNameEntry" 
+                   Placeholder="Введите название схемы"/>
+
+            <Label Text="Размер схемы" FontSize="16" FontAttributes="Bold"/>
+            <HorizontalStackLayout Spacing="10">
+                <Entry x:Name="WidthEntry" 
+                       Placeholder="Ширина (крестики)"
+                       Keyboard="Numeric"
+                       WidthRequest="150"/>
+                <Label Text="x" FontSize="18" VerticalOptions="Center"/>
+                <Entry x:Name="HeightEntry" 
+                       Placeholder="Высота (крестики)"
+                       Keyboard="Numeric"
+                       WidthRequest="150"/>
+            </HorizontalStackLayout>
+
+            <Label Text="Изображение" FontSize="16" FontAttributes="Bold"/>
+
+            <Frame BorderColor="LightGray" 
+                   CornerRadius="10" 
+                   Padding="10"
+                   HeightRequest="200">
+                <StackLayout>
+                    <Image x:Name="SelectedImage" 
+                           Aspect="AspectFit"
+                           HeightRequest="150"/>
+
+                    <Button Text="📷 Выбрать изображение" 
+                            Clicked="OnSelectImageClicked"
+                            BackgroundColor="#FF9800"/>
+                </StackLayout>
+            </Frame>
+
+            <Label x:Name="ColorInfoLabel" 
+                   Text="" 
+                   FontSize="14"
+                   TextColor="Gray"
+                   IsVisible="False"/>
+
+            <Button x:Name="SaveButton" 
+                    Text="💾 Сохранить схему" 
+                    Clicked="OnSavePatternClicked"
+                    BackgroundColor="#4CAF50"
+                    IsEnabled="False"
+                    HeightRequest="50"/>
+
+            <Label x:Name="MessageLabel" 
+                   Text="" 
+                   TextColor="Red"
+                   HorizontalOptions="Center"/>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
