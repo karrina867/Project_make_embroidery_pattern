@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MauiApp1.Views.MainPage"
+             Title="Главная">
+
+    <VerticalStackLayout Spacing="25" Padding="30" VerticalOptions="Center">
+        <Label Text="Добро пожаловать!" 
+               FontSize="32" 
+               HorizontalOptions="Center"
+               FontAttributes="Bold"/>
+
+        <Label x:Name="UserInfoLabel" 
+               FontSize="18" 
+               HorizontalOptions="Center"/>
+
+        <Button Text="Выйти" 
+                Clicked="OnLogoutClicked"
+                BackgroundColor="#FF4444"
+                HorizontalOptions="Center"
+                WidthRequest="200"/>
+    </VerticalStackLayout>
+</ContentPage>

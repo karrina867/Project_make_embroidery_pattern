@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MauiApp1.Views.AuthPage"
+             Title="Авторизация">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="15" Padding="30" VerticalOptions="Center">
+
+            <!-- Вместо SegmentedButton используем обычные кнопки -->
+            <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                <Button x:Name="LoginModeBtn" 
+                        Text="Вход" 
+                        Clicked="OnLoginModeClicked"
+                        BackgroundColor="#2196F3"
+                        WidthRequest="120"/>
+                <Button x:Name="RegisterModeBtn" 
+                        Text="Регистрация" 
+                        Clicked="OnRegisterModeClicked"
+                        BackgroundColor="#9E9E9E"
+                        WidthRequest="120"/>
+            </HorizontalStackLayout>
+
+            <!-- Форма входа -->
+            <VerticalStackLayout x:Name="LoginForm" Spacing="15">
+                <Label Text="Логин или Email" FontSize="14"/>
+                <Entry x:Name="LoginOrEmailEntry" Placeholder="Введите логин или email"/>
+
+                <Label Text="Пароль" FontSize="14"/>
+                <Entry x:Name="LoginPasswordEntry" Placeholder="Введите пароль" IsPassword="True"/>
+
+                <Button Text="Войти" Clicked="OnLoginClicked" BackgroundColor="#2196F3"/>
+            </VerticalStackLayout>
+
+            <!-- Форма регистрации -->
+            <VerticalStackLayout x:Name="RegisterForm" IsVisible="False" Spacing="15">
+                <Label Text="Логин" FontSize="14"/>
+                <Entry x:Name="RegLoginEntry" Placeholder="Введите логин"/>
+
+                <Label Text="Email" FontSize="14"/>
+                <Entry x:Name="RegEmailEntry" Placeholder="Введите email" Keyboard="Email"/>
+
+                <Label Text="Пароль" FontSize="14"/>
+                <Entry x:Name="RegPasswordEntry" Placeholder="Введите пароль" IsPassword="True"/>
+
+                <Label Text="Подтверждение пароля" FontSize="14"/>
+                <Entry x:Name="RegConfirmPasswordEntry" Placeholder="Повторите пароль" IsPassword="True"/>
+
+                <Button Text="Зарегистрироваться" Clicked="OnRegisterClicked" BackgroundColor="#4CAF50"/>
+            </VerticalStackLayout>
+
+            <Label x:Name="MessageLabel" Text="" TextColor="Red" HorizontalOptions="Center"/>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
