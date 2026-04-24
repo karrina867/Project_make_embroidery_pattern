@@ -20,5 +20,9 @@ namespace MauiApp1.Models
         [Indexed]  // Добавляем индекс для быстрого поиска
         public int UserId { get; set; }
         public string PatternDataFile { get; set; } // Имя файла с матрицей цветов
+
+
+
+
     }
 }

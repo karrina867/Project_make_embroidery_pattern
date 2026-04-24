@@ -96,11 +96,16 @@ namespace MauiApp1.Views
                 SaveButton.IsEnabled = false;
                 SaveButton.Text = "Обработка изображения...";
 
+                // Обрабатываем изображение и получаем матрицу
                 var processor = new ImageProcessor();
-                var colors = await processor.ProcessImage(_selectedImagePath, width, height);
+                var (colors, colorMatrix) = await processor.ProcessImageWithMatrix(_selectedImagePath, width, height);
 
                 SaveButton.Text = "Сохранение схемы...";
 
+                // Сохраняем матрицу в файл
+                var matrixFileName = processor.SaveColorMatrix(colorMatrix, PatternNameEntry.Text);
+
+                // Сохраняем оригинальное изображение
                 byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
 
                 using (var stream = new MemoryStream(imageBytes))
@@ -111,14 +116,15 @@ namespace MauiApp1.Views
                         Width = width,
                         Height = height,
                         ColorCount = colors.Count,
-                        CellSize = 10
+                        CellSize = 30,
+                        PatternDataFile = matrixFileName  // ← Сохраняем имя файла матрицы
                     };
 
-                    // Передаем ID текущего пользователя
                     var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream, _currentUser.Id);
 
                     if (success)
                     {
+                        // Сохраняем цвета
                         await _databaseService.SavePatternColors(patternId, colors);
                         await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
 

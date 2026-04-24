@@ -309,32 +309,36 @@ namespace MauiApp1.Services  // Исправлено пространство и
 
 
         // Удаление схемы (с проверкой прав)
+        // Удаление схемы (с удалением файла матрицы)
         public async Task<bool> DeletePattern(int patternId, int userId)
         {
             try
             {
                 await Init();
 
-                // Сначала проверяем, принадлежит ли схема пользователю
                 var pattern = await GetPatternById(patternId, userId);
                 if (pattern == null)
                     return false;
 
+                // Удаляем файл матрицы цветов
+                if (!string.IsNullOrEmpty(pattern.PatternDataFile))
+                {
+                    var matrixPath = Path.Combine(FileSystem.AppDataDirectory, pattern.PatternDataFile);
+                    if (File.Exists(matrixPath))
+                        File.Delete(matrixPath);
+                }
+
                 // Удаляем файл изображения
                 var imagePath = GetImagePath(pattern.ImageFileName);
                 if (File.Exists(imagePath))
-                {
                     File.Delete(imagePath);
-                }
 
-                // Удаляем связанные цвета
-                var colors = await GetPatternColors(patternId);
+                // Удаляем цвета из БД
+                var colors = await GetPatternColors(patternId, userId);
                 foreach (var color in colors)
-                {
                     await _database.DeleteAsync(color);
-                }
 
-                // Удаляем саму схему
+                // Удаляем схему
                 await _database.DeleteAsync(pattern);
                 return true;
             }

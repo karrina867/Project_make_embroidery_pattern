@@ -71,26 +71,69 @@ namespace MauiApp1.Views
         {
             await Task.Run(() =>
             {
-                // Создаем карту символов для быстрого доступа
-                var colorMap = _colors.ToDictionary(c => $"{c.Red},{c.Green},{c.Blue}", c => c);
-
-                // Создаем временную карту цветов для каждого крестика
-                // В реальном приложении здесь нужно загрузить обработанное изображение
-                // или сохранять матрицу цветов при создании схемы
-
-                // Для примера создаем тестовую схему
-                var random = new Random();
-                _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
-
-                for (int x = 0; x < _pattern.Width; x++)
+                // Загружаем матрицу цветов из файла
+                if (!string.IsNullOrEmpty(_pattern.PatternDataFile))
                 {
-                    for (int y = 0; y < _pattern.Height; y++)
+                    try
                     {
-                        var color = _colors[random.Next(_colors.Count)];
-                        _patternBitmap.SetPixel(x, y, new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue));
+                        var processor = new ImageProcessor();
+                        var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
+
+                        // Создаем карту цветов по индексам
+                        var colorMap = new Dictionary<int, SKColor>();
+                        for (int i = 0; i < _colors.Count; i++)
+                        {
+                            colorMap[i] = new SKColor(
+                                (byte)_colors[i].Red,
+                                (byte)_colors[i].Green,
+                                (byte)_colors[i].Blue);
+                        }
+
+                        // Создаем битмап из матрицы
+                        _patternBitmap = new SKBitmap(width, height);
+
+                        for (int x = 0; x < width; x++)
+                        {
+                            for (int y = 0; y < height; y++)
+                            {
+                                int colorIndex = colorMatrix[x, y];
+                                if (colorMap.ContainsKey(colorIndex))
+                                {
+                                    _patternBitmap.SetPixel(x, y, colorMap[colorIndex]);
+                                }
+                            }
+                        }
+
+                        System.Diagnostics.Debug.WriteLine($"Схема загружена: {width}x{height}, {_colors.Count} цветов");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Ошибка загрузки матрицы: {ex.Message}");
+                        CreateBitmapFromColorsOnly();
                     }
                 }
+                else
+                {
+                    CreateBitmapFromColorsOnly();
+                }
             });
+        }
+
+        private void CreateBitmapFromColorsOnly()
+        {
+            // Для старых схем без матрицы - равномерное распределение цветов
+            _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
+
+            for (int x = 0; x < _pattern.Width; x++)
+            {
+                for (int y = 0; y < _pattern.Height; y++)
+                {
+                    // Используем позицию для определения цвета (волновой паттерн)
+                    int colorIndex = (x + y) % _colors.Count;
+                    var color = _colors[colorIndex];
+                    _patternBitmap.SetPixel(x, y, new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue));
+                }
+            }
         }
 
         private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)

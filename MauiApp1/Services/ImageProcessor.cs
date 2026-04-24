@@ -39,6 +39,166 @@ namespace MauiApp1.Services
             });
         }
 
+        public async Task<(List<EmbroideryColor> colors, int[,] colorMatrix)> ProcessImageWithMatrix(
+          string imagePath, int targetWidth, int targetHeight)
+        {
+            return await Task.Run(() =>
+            {
+                using (var originalBitmap = SKBitmap.Decode(imagePath))
+                {
+                    if (originalBitmap == null)
+                        throw new Exception("Не удалось загрузить изображение");
+
+                    // Изменяем размер до целевого
+                    var resizedBitmap = ResizeBitmap(originalBitmap, targetWidth, targetHeight);
+
+                    // Извлекаем все цвета
+                    var colorDict = ExtractColorsWithPositions(resizedBitmap);
+
+                    // Уменьшаем количество цветов (максимум 50)
+                    var reducedColors = ReduceColors(colorDict.Values.ToList(), maxColors: 50);
+
+                    // Назначаем символы
+                    var embroideryColors = AssignSymbols(reducedColors);
+
+                    // Создаем карту цветов
+                    var colorMap = new Dictionary<SKColor, int>();
+                    for (int i = 0; i < embroideryColors.Count; i++)
+                    {
+                        var color = new SKColor(
+                            (byte)embroideryColors[i].Red,
+                            (byte)embroideryColors[i].Green,
+                            (byte)embroideryColors[i].Blue);
+                        colorMap[color] = i;
+                    }
+
+                    // Создаем матрицу индексов цветов
+                    var colorMatrix = new int[targetWidth, targetHeight];
+                    for (int x = 0; x < targetWidth; x++)
+                    {
+                        for (int y = 0; y < targetHeight; y++)
+                        {
+                            var pixelColor = resizedBitmap.GetPixel(x, y);
+                            var simplifiedColor = SimplifyColor(pixelColor);
+
+                            if (colorMap.ContainsKey(simplifiedColor))
+                            {
+                                colorMatrix[x, y] = colorMap[simplifiedColor];
+                            }
+                            else
+                            {
+                                // Находим ближайший цвет
+                                int closestIndex = FindClosestColorIndex(simplifiedColor, embroideryColors);
+                                colorMatrix[x, y] = closestIndex;
+                            }
+                        }
+                    }
+
+                    return (embroideryColors, colorMatrix);
+                }
+            });
+        }
+        // Извлечение цветов с позициями
+        private Dictionary<SKColor, QuantizedColor> ExtractColorsWithPositions(SKBitmap bitmap)
+        {
+            var colorDict = new Dictionary<SKColor, QuantizedColor>();
+
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    var pixelColor = bitmap.GetPixel(x, y);
+                    var simplifiedColor = SimplifyColor(pixelColor);
+
+                    if (!colorDict.ContainsKey(simplifiedColor))
+                    {
+                        colorDict[simplifiedColor] = new QuantizedColor
+                        {
+                            Color = simplifiedColor,
+                            Count = 0
+                        };
+                    }
+                    colorDict[simplifiedColor].Count++;
+                }
+            }
+
+            return colorDict;
+        }
+
+        // Поиск ближайшего цвета
+        private int FindClosestColorIndex(SKColor color, List<EmbroideryColor> colors)
+        {
+            int closestIndex = 0;
+            int minDistance = int.MaxValue;
+
+            for (int i = 0; i < colors.Count; i++)
+            {
+                int distance = Math.Abs(color.Red - colors[i].Red) +
+                              Math.Abs(color.Green - colors[i].Green) +
+                              Math.Abs(color.Blue - colors[i].Blue);
+
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    closestIndex = i;
+                }
+            }
+
+            return closestIndex;
+        }
+
+        // Сохранение матрицы в файл
+        public string SaveColorMatrix(int[,] matrix, string patternName)
+        {
+            var safeName = string.Join("_", patternName.Split(Path.GetInvalidFileNameChars()));
+            var fileName = $"matrix_{safeName}_{Guid.NewGuid()}.dat";
+            var filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+            using (var writer = new BinaryWriter(File.OpenWrite(filePath)))
+            {
+                // Записываем размеры
+                writer.Write(matrix.GetLength(0)); // width
+                writer.Write(matrix.GetLength(1)); // height
+
+                // Записываем матрицу индексов
+                for (int y = 0; y < matrix.GetLength(1); y++)
+                {
+                    for (int x = 0; x < matrix.GetLength(0); x++)
+                    {
+                        writer.Write(matrix[x, y]);
+                    }
+                }
+            }
+
+            return fileName;
+        }
+
+        // Загрузка матрицы из файла
+        public (int[,] matrix, int width, int height) LoadColorMatrix(string fileName)
+        {
+            var filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("Файл матрицы не найден");
+
+            using (var reader = new BinaryReader(File.OpenRead(filePath)))
+            {
+                int width = reader.ReadInt32();
+                int height = reader.ReadInt32();
+                var matrix = new int[width, height];
+
+                for (int y = 0; y < height; y++)
+                {
+                    for (int x = 0; x < width; x++)
+                    {
+                        matrix[x, y] = reader.ReadInt32();
+                    }
+                }
+
+                return (matrix, width, height);
+            }
+        }
+
         private SKBitmap ResizeBitmap(SKBitmap original, int width, int height)
         {
             var resized = new SKBitmap(width, height);
@@ -50,6 +210,19 @@ namespace MauiApp1.Services
             }
             return resized;
         }
+
+
+        //private SKBitmap ResizeBitmap(SKBitmap original, int width, int height)
+        //{
+        //    var resized = new SKBitmap(width, height);
+        //    using (var canvas = new SKCanvas(resized))
+        //    {
+        //        var destRect = new SKRect(0, 0, width, height);
+        //        var srcRect = new SKRect(0, 0, original.Width, original.Height);
+        //        canvas.DrawBitmap(original, srcRect, destRect);
+        //    }
+        //    return resized;
+        //}
 
         private List<QuantizedColor> ExtractColors(SKBitmap bitmap)
         {
