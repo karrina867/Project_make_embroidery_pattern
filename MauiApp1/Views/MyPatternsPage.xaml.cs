@@ -7,18 +7,18 @@ namespace MauiApp1.Views
     public partial class MyPatternsPage : ContentPage
     {
         private readonly DatabaseService _databaseService;
+        private readonly User _currentUser;
         private ObservableCollection<PatternViewModel> _allPatterns;
         private ObservableCollection<PatternViewModel> _filteredPatterns;
 
-        public MyPatternsPage()
+        public MyPatternsPage(User user)
         {
             InitializeComponent();
             _databaseService = new DatabaseService();
+            _currentUser = user;
             _allPatterns = new ObservableCollection<PatternViewModel>();
             _filteredPatterns = new ObservableCollection<PatternViewModel>();
             PatternsCollection.ItemsSource = _filteredPatterns;
-
-            LoadPatterns();
         }
 
         protected override void OnAppearing()
@@ -29,27 +29,42 @@ namespace MauiApp1.Views
 
         private async void LoadPatterns()
         {
-            var patterns = await _databaseService.GetAllPatterns();
-
-            _allPatterns.Clear();
-            foreach (var pattern in patterns)
+            try
             {
-                var imagePath = _databaseService.GetImagePath(pattern.ImageFileName);
-                _allPatterns.Add(new PatternViewModel
-                {
-                    Id = pattern.Id,
-                    Name = pattern.Name,
-                    Width = pattern.Width,
-                    Height = pattern.Height,
-                    ColorCount = pattern.ColorCount,
-                    CreatedAt = pattern.CreatedAt,
-                    ImagePath = imagePath,
-                    Info = $"{pattern.Width}x{pattern.Height} крестиков | {pattern.ColorCount} цветов | {pattern.CreatedAt:dd.MM.yyyy}"
-                });
-            }
+                // Получаем только схемы текущего пользователя
+                var patterns = await _databaseService.GetUserPatterns(_currentUser.Id);
 
-            ApplyFilter();
+                _allPatterns.Clear();
+                foreach (var pattern in patterns)
+                {
+                    var imagePath = _databaseService.GetImagePath(pattern.ImageFileName);
+
+                    if (!File.Exists(imagePath))
+                    {
+                        imagePath = null;
+                    }
+
+                    _allPatterns.Add(new PatternViewModel
+                    {
+                        Id = pattern.Id,
+                        Name = pattern.Name,
+                        Width = pattern.Width,
+                        Height = pattern.Height,
+                        ColorCount = pattern.ColorCount,
+                        CreatedAt = pattern.CreatedAt,
+                        ImagePath = imagePath,
+                        Info = $"{pattern.Width}x{pattern.Height} крестиков | {pattern.ColorCount} цветов | {pattern.CreatedAt:dd.MM.yyyy}"
+                    });
+                }
+
+                ApplyFilter();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Ошибка", $"Не удалось загрузить схемы: {ex.Message}", "OK");
+            }
         }
+
 
         private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -128,23 +143,21 @@ namespace MauiApp1.Views
         {
             if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
             {
-                // Открываем детали схемы
-                var pattern = new EmbroideryPattern
-                {
-                    Id = selectedPattern.Id,
-                    Name = selectedPattern.Name,
-                    Width = selectedPattern.Width,
-                    Height = selectedPattern.Height,
-                    ColorCount = selectedPattern.ColorCount,
-                    CreatedAt = selectedPattern.CreatedAt,
-                    ImageFileName = Path.GetFileName(selectedPattern.ImagePath)
-                };
+                // Получаем полную схему с проверкой прав
+                var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
 
-                await Navigation.PushAsync(new PatternDetailsPage(pattern));
+                if (pattern != null)
+                {
+                    await Navigation.PushAsync(new PatternDetailsPage(pattern, _currentUser));
+                }
+                else
+                {
+                    await DisplayAlert("Ошибка", "Схема не найдена или доступ запрещен", "OK");
+                }
             }
 
             PatternsCollection.SelectedItem = null;
-        }
+        } 
 
         public class PatternViewModel
         {

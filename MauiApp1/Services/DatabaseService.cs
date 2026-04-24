@@ -248,21 +248,18 @@ namespace MauiApp1.Services  // Исправлено пространство и
 
         // Сохранение схемы
         // Сохранение схемы
-        public async Task<(bool success, string message, int patternId)> SavePattern(EmbroideryPattern pattern, Stream imageStream)
+        public async Task<(bool success, string message, int patternId)> SavePattern(EmbroideryPattern pattern, Stream imageStream, int userId)
         {
             try
             {
                 await Init();
 
-                // Генерируем уникальное имя для файла
                 var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
                 var fileName = $"{Guid.NewGuid()}_{safeName}.jpg";
                 var filePath = Path.Combine(_imagesPath, fileName);
 
-                // Сохраняем изображение - важно: не закрываем исходный поток
                 using (var fileStream = File.Create(filePath))
                 {
-                    // Сбрасываем позицию потока в начало
                     if (imageStream.CanSeek)
                     {
                         imageStream.Position = 0;
@@ -271,9 +268,9 @@ namespace MauiApp1.Services  // Исправлено пространство и
                     await fileStream.FlushAsync();
                 }
 
-                // Сохраняем информацию в БД
                 pattern.ImageFileName = fileName;
                 pattern.CreatedAt = DateTime.Now;
+                pattern.UserId = userId;  // ← Привязываем схему к пользователю
 
                 await _database.InsertAsync(pattern);
 
@@ -285,11 +282,82 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
+        // Получение всех схем ТОЛЬКО для конкретного пользователя
+        public async Task<List<EmbroideryPattern>> GetUserPatterns(int userId)
+        {
+            await Init();
+            return await _database.Table<EmbroideryPattern>()
+                .Where(p => p.UserId == userId)  // ← Фильтр по пользователю
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        // Получение одной схемы с проверкой принадлежности пользователю
+        public async Task<EmbroideryPattern> GetPatternById(int patternId, int userId)
+        {
+            await Init();
+            return await _database.Table<EmbroideryPattern>()
+                .FirstOrDefaultAsync(p => p.Id == patternId && p.UserId == userId);
+        }
+
         // Получение всех схем
         public async Task<List<EmbroideryPattern>> GetAllPatterns()
         {
             await Init();
             return await _database.Table<EmbroideryPattern>().OrderByDescending(p => p.CreatedAt).ToListAsync();
+        }
+
+
+        // Удаление схемы (с проверкой прав)
+        public async Task<bool> DeletePattern(int patternId, int userId)
+        {
+            try
+            {
+                await Init();
+
+                // Сначала проверяем, принадлежит ли схема пользователю
+                var pattern = await GetPatternById(patternId, userId);
+                if (pattern == null)
+                    return false;
+
+                // Удаляем файл изображения
+                var imagePath = GetImagePath(pattern.ImageFileName);
+                if (File.Exists(imagePath))
+                {
+                    File.Delete(imagePath);
+                }
+
+                // Удаляем связанные цвета
+                var colors = await GetPatternColors(patternId);
+                foreach (var color in colors)
+                {
+                    await _database.DeleteAsync(color);
+                }
+
+                // Удаляем саму схему
+                await _database.DeleteAsync(pattern);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // Получение цветов схемы (с проверкой прав)
+        public async Task<List<EmbroideryColor>> GetPatternColors(int patternId, int userId)
+        {
+            await Init();
+
+            // Проверяем, принадлежит ли схема пользователю
+            var pattern = await GetPatternById(patternId, userId);
+            if (pattern == null)
+                return new List<EmbroideryColor>();
+
+            return await _database.Table<EmbroideryColor>()
+                .Where(c => c.PatternId == patternId)
+                .OrderBy(c => c.Symbol)
+                .ToListAsync();
         }
 
         // Получение пути к изображению схемы

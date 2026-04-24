@@ -7,12 +7,17 @@ namespace MauiApp1.Models
     {
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
+
         public string Name { get; set; }
         public string ImageFileName { get; set; }
         public DateTime CreatedAt { get; set; }
-        public int Width { get; set; }      // Ширина в крестиках
-        public int Height { get; set; }     // Высота в крестиках
-        public int ColorCount { get; set; }  // Количество цветов
-        public int CellSize { get; set; }   // Размер ячейки в пикселях (для отображения)
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public int ColorCount { get; set; }
+        public int CellSize { get; set; }
+
+        // НОВОЕ ПОЛЕ: ID пользователя, которому принадлежит схема
+        [Indexed]  // Добавляем индекс для быстрого поиска
+        public int UserId { get; set; }
     }
 }

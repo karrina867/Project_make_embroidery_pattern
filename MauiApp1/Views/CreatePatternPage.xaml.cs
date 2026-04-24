@@ -6,15 +6,16 @@ namespace MauiApp1.Views
     public partial class CreatePatternPage : ContentPage
     {
         private readonly DatabaseService _databaseService;
+        private readonly User _currentUser;
         private string _selectedImagePath;  // Сохраняем путь вместо потока
         private byte[] _selectedImageBytes; // Или сохраняем в байты
 
-        public CreatePatternPage()
+        public CreatePatternPage(User user)
         {
             InitializeComponent();
             _databaseService = new DatabaseService();
+            _currentUser = user;
         }
-
         private async void OnSelectImageClicked(object sender, EventArgs e)
         {
             try
@@ -95,18 +96,15 @@ namespace MauiApp1.Views
                 SaveButton.IsEnabled = false;
                 SaveButton.Text = "Обработка изображения...";
 
-                // Обрабатываем изображение
                 var processor = new ImageProcessor();
                 var colors = await processor.ProcessImage(_selectedImagePath, width, height);
 
                 SaveButton.Text = "Сохранение схемы...";
 
-                // Читаем файл в массив байтов
                 byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
 
                 using (var stream = new MemoryStream(imageBytes))
                 {
-                    // Создаем схему
                     var pattern = new EmbroideryPattern
                     {
                         Name = PatternNameEntry.Text,
@@ -116,11 +114,11 @@ namespace MauiApp1.Views
                         CellSize = 10
                     };
 
-                    var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream);
+                    // Передаем ID текущего пользователя
+                    var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream, _currentUser.Id);
 
                     if (success)
                     {
-                        // Сохраняем цвета
                         await _databaseService.SavePatternColors(patternId, colors);
                         await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
 
@@ -141,7 +139,6 @@ namespace MauiApp1.Views
             catch (Exception ex)
             {
                 MessageLabel.Text = $"Ошибка: {ex.Message}";
-                await DisplayAlert("Ошибка", ex.Message, "OK");
             }
             finally
             {

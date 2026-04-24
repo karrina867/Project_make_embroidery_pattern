@@ -14,12 +14,12 @@ namespace MauiApp1.Views
 
         private async void OnCreatePatternClicked(object sender, EventArgs e)
         {
-            await Navigation.PushAsync(new CreatePatternPage());
+            await Navigation.PushAsync(new CreatePatternPage(_currentUser));
         }
 
         private async void OnMyPatternsClicked(object sender, EventArgs e)
         {
-            await Navigation.PushAsync(new MyPatternsPage());
+            await Navigation.PushAsync(new MyPatternsPage(_currentUser));
         }
 
         private async void OnLogoutClicked(object sender, EventArgs e)

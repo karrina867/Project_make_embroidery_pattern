@@ -8,26 +8,37 @@ namespace MauiApp1.Views
     {
         private readonly DatabaseService _databaseService;
         private readonly EmbroideryPattern _pattern;
+        private readonly User _currentUser;
         private List<EmbroideryColor> _colors;
 
-        public PatternDetailsPage(EmbroideryPattern pattern)
+        public PatternDetailsPage(EmbroideryPattern pattern, User user)
         {
             InitializeComponent();
             _databaseService = new DatabaseService();
             _pattern = pattern;
+            _currentUser = user;
 
             LoadPatternDetails();
         }
+
 
         private async void LoadPatternDetails()
         {
             try
             {
+                // Проверяем права доступа
+                if (_pattern.UserId != _currentUser.Id)
+                {
+                    await DisplayAlert("Ошибка", "У вас нет доступа к этой схеме", "OK");
+                    await Navigation.PopAsync();
+                    return;
+                }
+
                 PatternNameLabel.Text = _pattern.Name;
                 PatternSizeLabel.Text = $"Размер: {_pattern.Width} x {_pattern.Height} крестиков";
                 PatternColorsLabel.Text = $"Количество цветов: {_pattern.ColorCount}";
 
-                _colors = await _databaseService.GetPatternColors(_pattern.Id);
+                _colors = await _databaseService.GetPatternColors(_pattern.Id, _currentUser.Id);
                 ColorsCollection.ItemsSource = _colors;
             }
             catch (Exception ex)
@@ -75,7 +86,7 @@ namespace MauiApp1.Views
 
             if (confirm)
             {
-                var deleted = await _databaseService.DeletePattern(_pattern);
+                var deleted = await _databaseService.DeletePattern(_pattern.Id, _currentUser.Id);
                 if (deleted)
                 {
                     await DisplayAlert("Успех", "Схема удалена", "OK");

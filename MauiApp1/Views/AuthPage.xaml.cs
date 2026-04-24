@@ -41,7 +41,7 @@ namespace MauiApp1.Views
             if (success)
             {
                 await DisplayAlert("Успех", message, "OK");
-                await Navigation.PushAsync(new MainMenuPage(user)); // Теперь открываем меню
+                await Navigation.PushAsync(new MainMenuPage(user)); // Передаем пользователя
             }
             else
             {
