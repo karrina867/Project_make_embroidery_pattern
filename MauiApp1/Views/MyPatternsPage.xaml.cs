@@ -223,4 +223,5 @@ namespace MauiApp1.Views
             public string ImagePath { get; set; }
             public string Info { get; set; }
         }
-    }}
+    }
+}

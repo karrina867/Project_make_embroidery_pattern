@@ -11,8 +11,8 @@ namespace MauiApp1
 
 
             //удалить потом
-            var dbService = new DatabaseService();
-            dbService.DeleteDatabase();
+            //var dbService = new DatabaseService();
+            //dbService.DeleteDatabase();
             //
 
             MainPage = new NavigationPage(new AuthPage());  // Views.AuthPage можно сократить до AuthPage, если есть using

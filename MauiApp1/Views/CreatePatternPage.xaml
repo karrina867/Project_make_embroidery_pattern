@@ -14,12 +14,12 @@
             <Label Text="Размер схемы" FontSize="16" FontAttributes="Bold"/>
             <HorizontalStackLayout Spacing="10">
                 <Entry x:Name="WidthEntry" 
-                       Placeholder="Ширина (крестики)"
+                       Placeholder="Ширина (по горизонтали)"
                        Keyboard="Numeric"
                        WidthRequest="150"/>
                 <Label Text="x" FontSize="18" VerticalOptions="Center"/>
                 <Entry x:Name="HeightEntry" 
-                       Placeholder="Высота (крестики)"
+                       Placeholder="Высота (по вертикали)"
                        Keyboard="Numeric"
                        WidthRequest="150"/>
             </HorizontalStackLayout>
@@ -62,3 +62,4 @@
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
+    

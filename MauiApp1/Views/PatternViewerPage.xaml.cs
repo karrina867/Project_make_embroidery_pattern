@@ -14,10 +14,15 @@ namespace MauiApp1.Views
 
         // Параметры отображения
         private float _cellSize = 30; // Размер ячейки в пикселях
-        private float _minCellSize = 10;
+        private float _minCellSize = 5;
         private float _maxCellSize = 80;
         private float _offsetX = 0;
         private float _offsetY = 0;
+
+        // Для авто-масштабирования
+        private int _canvasWidth = 0;
+        private int _canvasHeight = 0;
+        private bool _isFirstDraw = true;
 
         // Для отслеживания касаний
         private float _touchStartX, _touchStartY;
@@ -33,7 +38,23 @@ namespace MauiApp1.Views
             _pattern = pattern;
             _currentUser = user;
 
-            LoadPatternData();
+            // Подписываемся на изменение размеров канвы
+            PatternCanvas.SizeChanged += OnCanvasSizeChanged;
+        }
+
+        private void OnCanvasSizeChanged(object sender, EventArgs e)
+        {
+            if (PatternCanvas.Width > 0 && PatternCanvas.Height > 0)
+            {
+                _canvasWidth = (int)PatternCanvas.Width;
+                _canvasHeight = (int)PatternCanvas.Height;
+
+                if (_isFirstDraw)
+                {
+                    FitToScreen();
+                    _isFirstDraw = false;
+                }
+            }
         }
 
         private async void LoadPatternData()
@@ -55,11 +76,8 @@ namespace MauiApp1.Views
                 PatternNameLabel.Text = _pattern.Name;
                 PatternInfoLabel.Text = $"{_pattern.Width} × {_pattern.Height} крестиков | {_pattern.ColorCount} цветов";
 
-                // Генерируем схему в памяти
-                await GeneratePatternBitmap();
-
-                // Обновляем канву
-                PatternCanvas.InvalidateSurface();
+                // Загружаем схему
+                await LoadPatternBitmap();
             }
             catch (Exception ex)
             {
@@ -67,17 +85,23 @@ namespace MauiApp1.Views
             }
         }
 
-        private async Task GeneratePatternBitmap()
+        private async Task LoadPatternBitmap()
         {
             await Task.Run(() =>
             {
-                // Загружаем матрицу цветов из файла
                 if (!string.IsNullOrEmpty(_pattern.PatternDataFile))
                 {
                     try
                     {
                         var processor = new ImageProcessor();
                         var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
+
+                        // Проверяем соответствие размеров
+                        if (width != _pattern.Width || height != _pattern.Height)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Предупреждение: размеры не совпадают. " +
+                                $"Файл: {width}x{height}, модель: {_pattern.Width}x{_pattern.Height}");
+                        }
 
                         // Создаем карту цветов по индексам
                         var colorMap = new Dictionary<int, SKColor>();
@@ -121,14 +145,13 @@ namespace MauiApp1.Views
 
         private void CreateBitmapFromColorsOnly()
         {
-            // Для старых схем без матрицы - равномерное распределение цветов
+            // Для старых схем без матрицы
             _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
 
             for (int x = 0; x < _pattern.Width; x++)
             {
                 for (int y = 0; y < _pattern.Height; y++)
                 {
-                    // Используем позицию для определения цвета (волновой паттерн)
                     int colorIndex = (x + y) % _colors.Count;
                     var color = _colors[colorIndex];
                     _patternBitmap.SetPixel(x, y, new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue));
@@ -136,27 +159,70 @@ namespace MauiApp1.Views
             }
         }
 
+        // Главное исправление - авто-масштабирование
+        private void FitToScreen()
+        {
+            if (_patternBitmap == null || _canvasWidth == 0 || _canvasHeight == 0)
+                return;
+
+            // Вычисляем необходимый размер ячейки, чтобы схема поместилась целиком
+            float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
+            float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
+
+            // Выбираем меньший размер, чтобы схема точно поместилась
+            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+
+            // Ограничиваем минимальный и максимальный размер
+            _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+            // Центрируем схему
+            float totalWidth = _pattern.Width * _cellSize;
+            float totalHeight = _pattern.Height * _cellSize;
+
+            _offsetX = (_canvasWidth - totalWidth) / 2;
+            _offsetY = (_canvasHeight - totalHeight) / 2;
+
+            UpdateZoomLabel();
+            PatternCanvas.InvalidateSurface();
+        }
+
         private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
             var info = e.Info;
+
+            // Обновляем размеры канвы для авто-масштабирования
+            if (_canvasWidth != info.Width || _canvasHeight != info.Height)
+            {
+                _canvasWidth = info.Width;
+                _canvasHeight = info.Height;
+
+                if (!_isFirstDraw && _patternBitmap != null)
+                {
+                    FitToScreen();
+                }
+            }
 
             // Очищаем фон
             canvas.Clear(SKColors.White);
 
             if (_patternBitmap == null) return;
 
-            // Вычисляем размеры схемы в пикселях
-            float totalWidth = _pattern.Width * _cellSize;
-            float totalHeight = _pattern.Height * _cellSize;
-
             // Применяем смещение (панорамирование)
             canvas.Translate(_offsetX, _offsetY);
 
-            // Рисуем сетку и залитые ячейки
-            for (int x = 0; x < _pattern.Width; x++)
+            // Отрисовываем схему
+            DrawPattern(canvas);
+        }
+
+        private void DrawPattern(SKCanvas canvas)
+        {
+            if (_patternBitmap == null) return;
+
+            // Рисуем каждую ячейку
+            for (int y = 0; y < _pattern.Height; y++)
             {
-                for (int y = 0; y < _pattern.Height; y++)
+                for (int x = 0; x < _pattern.Width; x++)
                 {
                     float left = x * _cellSize;
                     float top = y * _cellSize;
@@ -171,50 +237,61 @@ namespace MauiApp1.Views
                         canvas.DrawRect(rect, paint);
                     }
 
-                    // Находим символ для этого цвета
-                    var embroideryColor = _colors.FirstOrDefault(c =>
-                        c.Red == pixelColor.Red &&
-                        c.Green == pixelColor.Green &&
-                        c.Blue == pixelColor.Blue);
-
-                    if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+                    // Рисуем символ, только если ячейка достаточно большая
+                    if (_cellSize >= 20)
                     {
-                        // Рисуем символ
-                        using (var paint = new SKPaint
+                        var embroideryColor = _colors.FirstOrDefault(c =>
+                            c.Red == pixelColor.Red &&
+                            c.Green == pixelColor.Green &&
+                            c.Blue == pixelColor.Blue);
+
+                        if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
                         {
-                            Color = GetContrastColor(pixelColor),
-                            TextSize = _cellSize * 0.6f,
-                            TextAlign = SKTextAlign.Center,
-                            IsAntialias = true
-                        })
-                        {
-                            float centerX = left + _cellSize / 2;
-                            float centerY = top + _cellSize / 2 - paint.TextSize * 0.35f;
-                            canvas.DrawText(embroideryColor.Symbol, centerX, centerY, paint);
+                            using (var paint = new SKPaint
+                            {
+                                Color = GetContrastColor(pixelColor),
+                                TextSize = _cellSize * 0.5f,
+                                TextAlign = SKTextAlign.Center,
+                                IsAntialias = true
+                            })
+                            {
+                                float centerX = left + _cellSize / 2;
+                                float centerY = top + _cellSize / 2 - paint.TextSize * 0.35f;
+                                canvas.DrawText(embroideryColor.Symbol, centerX, centerY, paint);
+                            }
                         }
                     }
 
-                    // Рисуем границу ячейки
-                    using (var paint = new SKPaint { Color = SKColors.Black, StrokeWidth = 1, IsStroke = true })
+                    // Рисуем границу ячейки (только при маленьком зуме или если надо)
+                    if (_cellSize <= 40)
                     {
-                        canvas.DrawRect(rect, paint);
+                        using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
+                        {
+                            canvas.DrawRect(rect, paint);
+                        }
                     }
                 }
             }
 
-            // Рисуем толстые линии каждые 10 клеток для удобства
-            using (var thickPaint = new SKPaint { Color = SKColors.DarkBlue, StrokeWidth = 2 })
+            // Рисуем толстые линии каждые 10 клеток (только если видно)
+            if (_cellSize >= 10)
             {
-                for (int x = 10; x < _pattern.Width; x += 10)
-                {
-                    float xPos = x * _cellSize;
-                    canvas.DrawLine(xPos, 0, xPos, totalHeight, thickPaint);
-                }
+                float totalWidth = _pattern.Width * _cellSize;
+                float totalHeight = _pattern.Height * _cellSize;
 
-                for (int y = 10; y < _pattern.Height; y += 10)
+                using (var thickPaint = new SKPaint { Color = SKColors.DarkGray, StrokeWidth = 1.5f })
                 {
-                    float yPos = y * _cellSize;
-                    canvas.DrawLine(0, yPos, totalWidth, yPos, thickPaint);
+                    for (int x = 10; x < _pattern.Width; x += 10)
+                    {
+                        float xPos = x * _cellSize;
+                        canvas.DrawLine(xPos, 0, xPos, totalHeight, thickPaint);
+                    }
+
+                    for (int y = 10; y < _pattern.Height; y += 10)
+                    {
+                        float yPos = y * _cellSize;
+                        canvas.DrawLine(0, yPos, totalWidth, yPos, thickPaint);
+                    }
                 }
             }
         }
@@ -242,10 +319,7 @@ namespace MauiApp1.Views
                 _offsetY = e.Location.Y - _touchStartY;
 
                 // Ограничиваем панорамирование
-                float maxOffsetX = _pattern.Width * _cellSize;
-                float maxOffsetY = _pattern.Height * _cellSize;
-                _offsetX = Math.Clamp(_offsetX, -maxOffsetX + 100, maxOffsetX - 100);
-                _offsetY = Math.Clamp(_offsetY, -maxOffsetY + 100, maxOffsetY - 100);
+                ClampOffset();
 
                 PatternCanvas.InvalidateSurface();
                 e.Handled = true;
@@ -257,32 +331,83 @@ namespace MauiApp1.Views
             }
         }
 
+        private void ClampOffset()
+        {
+            float totalWidth = _pattern.Width * _cellSize;
+            float totalHeight = _pattern.Height * _cellSize;
+
+            // Минимальное смещение не дает увести схему за край
+            float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
+            float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
+
+            // Если схема помещается, центрируем её
+            if (totalWidth <= _canvasWidth)
+            {
+                _offsetX = (_canvasWidth - totalWidth) / 2;
+            }
+            else
+            {
+                _offsetX = Math.Clamp(_offsetX, -maxOffsetX, 0);
+            }
+
+            if (totalHeight <= _canvasHeight)
+            {
+                _offsetY = (_canvasHeight - totalHeight) / 2;
+            }
+            else
+            {
+                _offsetY = Math.Clamp(_offsetY, -maxOffsetY, 0);
+            }
+        }
+
         private void OnZoomInClicked(object sender, EventArgs e)
         {
+            float oldCellSize = _cellSize;
             _cellSize = Math.Min(_cellSize * 1.2f, _maxCellSize);
+
+            // Корректируем смещение, чтобы центр оставался на месте
+            if (_canvasWidth > 0 && _canvasHeight > 0)
+            {
+                float centerX = _canvasWidth / 2 - _offsetX;
+                float centerY = _canvasHeight / 2 - _offsetY;
+                float ratio = _cellSize / oldCellSize;
+                _offsetX = _canvasWidth / 2 - centerX * ratio;
+                _offsetY = _canvasHeight / 2 - centerY * ratio;
+            }
+
+            ClampOffset();
             UpdateZoomLabel();
             PatternCanvas.InvalidateSurface();
         }
 
         private void OnZoomOutClicked(object sender, EventArgs e)
         {
+            float oldCellSize = _cellSize;
             _cellSize = Math.Max(_cellSize / 1.2f, _minCellSize);
+
+            // Корректируем смещение
+            if (_canvasWidth > 0 && _canvasHeight > 0)
+            {
+                float centerX = _canvasWidth / 2 - _offsetX;
+                float centerY = _canvasHeight / 2 - _offsetY;
+                float ratio = _cellSize / oldCellSize;
+                _offsetX = _canvasWidth / 2 - centerX * ratio;
+                _offsetY = _canvasHeight / 2 - centerY * ratio;
+            }
+
+            ClampOffset();
             UpdateZoomLabel();
             PatternCanvas.InvalidateSurface();
         }
 
         private void OnResetZoomClicked(object sender, EventArgs e)
         {
-            _cellSize = 30;
-            _offsetX = 0;
-            _offsetY = 0;
-            UpdateZoomLabel();
-            PatternCanvas.InvalidateSurface();
+            FitToScreen();
         }
 
         private void UpdateZoomLabel()
         {
-            int percent = (int)(_cellSize / 30 * 100);
+            int percent = (int)((_cellSize / 30) * 100);
             ZoomLabel.Text = $"{percent}%";
         }
 
@@ -294,13 +419,25 @@ namespace MauiApp1.Views
             var legend = "━━━━━━ ЦВЕТА И СИМВОЛЫ ━━━━━━\n\n";
             foreach (var color in _colors)
             {
-                legend += $"{color.Symbol} - {color.ColorHex}";
+                legend += $"■ {color.Symbol} - {color.ColorHex}";
                 if (!string.IsNullOrEmpty(color.DMCNumber))
                     legend += $" (DMC: {color.DMCNumber})";
-                legend += $" - {color.PixelCount} крестиков\n";
+                legend += $" - {color.PixelCount} шт.\n";
             }
 
             await DisplayAlert("Легенда схемы", legend, "OK");
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            LoadPatternData();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
         }
     }
 }
