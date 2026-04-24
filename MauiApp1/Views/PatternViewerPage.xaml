@@ -13,43 +13,36 @@
         </Grid.RowDefinitions>
 
         <!-- Верхняя панель с информацией -->
-        <VerticalStackLayout Padding="10" Spacing="5" BackgroundColor="#F0F0F0">
+        <VerticalStackLayout Padding="10" Spacing="5" BackgroundColor="LightGray">
             <Label x:Name="PatternNameLabel" FontSize="18" FontAttributes="Bold"/>
             <Label x:Name="PatternInfoLabel" FontSize="12" TextColor="Gray"/>
         </VerticalStackLayout>
 
-        <!-- Область для схемы -->
-        <Grid Grid.Row="1">
+        <!-- Область для схемы с поддержкой масштабирования и прокрутки -->
+        <ScrollView Grid.Row="1" 
+                    x:Name="PatternScrollView"
+                    HorizontalScrollBarVisibility="Always"
+                    VerticalScrollBarVisibility="Always">
+
             <skia:SKCanvasView x:Name="PatternCanvas"
                                PaintSurface="OnCanvasPaintSurface"
                                EnableTouchEvents="True"
                                Touch="OnCanvasTouch"/>
 
-            <!-- Подсказка для пользователя -->
-            <Label Text="👆 Два пальца для зума | ☝️ Один палец для перемещения"
-                   FontSize="10"
-                   TextColor="Gray"
-                   BackgroundColor="White"
-                   Opacity="0.7"
-                   HorizontalOptions="Center"
-                   VerticalOptions="End"
-                   Margin="0,0,0,10"
-                   Padding="5"/>
-        </Grid>
+        </ScrollView>
 
-        <!-- Нижняя панель управления -->
+        <!-- Нижняя панель с элементами управления -->
         <HorizontalStackLayout Grid.Row="2" 
                                Padding="10" 
                                Spacing="10"
-                               BackgroundColor="#F0F0F0">
+                               BackgroundColor="LightGray">
 
-            <Button Text="−" 
+            <Button Text="-" 
                     Clicked="OnZoomOutClicked"
                     BackgroundColor="#2196F3"
                     WidthRequest="60"
-                    FontSize="24"
-                    FontAttributes="Bold"
-                    CornerRadius="5"/>
+                    FontSize="20"
+                    FontAttributes="Bold"/>
 
             <Label x:Name="ZoomLabel" 
                    Text="100%" 
@@ -62,24 +55,22 @@
                     Clicked="OnZoomInClicked"
                     BackgroundColor="#2196F3"
                     WidthRequest="60"
-                    FontSize="24"
-                    FontAttributes="Bold"
-                    CornerRadius="5"/>
+                    FontSize="20"
+                    FontAttributes="Bold"/>
 
             <Button Text="⟳" 
                     Clicked="OnResetZoomClicked"
                     BackgroundColor="#FF9800"
                     WidthRequest="60"
-                    FontSize="20"
-                    CornerRadius="5"/>
+                    FontSize="16"/>
 
             <Button Text="📋" 
                     Clicked="OnShowLegendClicked"
                     BackgroundColor="#4CAF50"
                     WidthRequest="60"
-                    FontSize="20"
-                    CornerRadius="5"/>
+                    FontSize="16"/>
 
         </HorizontalStackLayout>
     </Grid>
 </ContentPage>
+    

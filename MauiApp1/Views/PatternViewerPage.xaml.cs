@@ -215,11 +215,69 @@ namespace MauiApp1.Views
             DrawPattern(canvas);
         }
 
+        //private void DrawPattern(SKCanvas canvas)
+        //{
+        //    if (_patternBitmap == null) return;
+
+        //    for (int y = 0; y < _pattern.Height; y++)
+        //    {
+        //        for (int x = 0; x < _pattern.Width; x++)
+        //        {
+        //            float left = x * _cellSize;
+        //            float top = y * _cellSize;
+        //            SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
+
+        //            var pixelColor = _patternBitmap.GetPixel(x, y);
+
+        //            // Рисуем заливку
+        //            using (var paint = new SKPaint { Color = pixelColor })
+        //            {
+        //                canvas.DrawRect(rect, paint);
+        //            }
+
+        //            // Рисуем символ
+        //            if (_cellSize >= 20)
+        //            {
+        //                var embroideryColor = _colors.FirstOrDefault(c =>
+        //                    c.Red == pixelColor.Red &&
+        //                    c.Green == pixelColor.Green &&
+        //                    c.Blue == pixelColor.Blue);
+
+        //                if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+        //                {
+        //                    using (var textPaint = new SKPaint
+        //                    {
+        //                        Color = GetContrastColor(pixelColor),
+        //                        TextSize = _cellSize * 0.5f,
+        //                        IsAntialias = true,
+        //                        TextAlign = SKTextAlign.Center
+        //                    })
+        //                    {
+        //                        // Простой способ центрирования
+        //                        float centerX = left + (_cellSize / 2);
+        //                        float centerY = top + (_cellSize / 2) + (textPaint.TextSize * 0.35f);
+
+        //                        canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
+        //                    }
+        //                }
+        //            }
+
+        //            // Рисуем границу
+        //            if (_cellSize <= 40)
+        //            {
+        //                using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
+        //                {
+        //                    canvas.DrawRect(rect, paint);
+        //                }
+        //            }
+        //        }
+        //    }
+        //}
         private void DrawPattern(SKCanvas canvas)
         {
             if (_patternBitmap == null) return;
 
-            // Рисуем каждую ячейку
+            // СНАЧАЛА рисуем все заливки
             for (int y = 0; y < _pattern.Height; y++)
             {
                 for (int x = 0; x < _pattern.Width; x++)
@@ -228,18 +286,27 @@ namespace MauiApp1.Views
                     float top = y * _cellSize;
                     SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
 
-                    // Получаем цвет пикселя
                     var pixelColor = _patternBitmap.GetPixel(x, y);
 
-                    // Рисуем заливку
                     using (var paint = new SKPaint { Color = pixelColor })
                     {
                         canvas.DrawRect(rect, paint);
                     }
+                }
+            }
 
-                    // Рисуем символ, только если ячейка достаточно большая
-                    if (_cellSize >= 20)
+            // ПОТОМ рисуем символы
+            if (_cellSize >= 20)
+            {
+                for (int y = 0; y < _pattern.Height; y++)
+                {
+                    for (int x = 0; x < _pattern.Width; x++)
                     {
+                        float left = x * _cellSize;
+                        float top = y * _cellSize;
+
+                        var pixelColor = _patternBitmap.GetPixel(x, y);
+
                         var embroideryColor = _colors.FirstOrDefault(c =>
                             c.Red == pixelColor.Red &&
                             c.Green == pixelColor.Green &&
@@ -247,39 +314,57 @@ namespace MauiApp1.Views
 
                         if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
                         {
-                            using (var paint = new SKPaint
+                            using (var textPaint = new SKPaint
                             {
                                 Color = GetContrastColor(pixelColor),
                                 TextSize = _cellSize * 0.5f,
-                                TextAlign = SKTextAlign.Center,
-                                IsAntialias = true
+                                IsAntialias = true,
+                                TextAlign = SKTextAlign.Center
                             })
                             {
-                                float centerX = left + _cellSize / 2;
-                                float centerY = top + _cellSize / 2 - paint.TextSize * 0.35f;
-                                canvas.DrawText(embroideryColor.Symbol, centerX, centerY, paint);
-                            }
-                        }
-                    }
+                                float centerX = left + (_cellSize / 2);
+                                float centerY = top + (_cellSize / 2) + (textPaint.TextSize * 0.35f);
 
-                    // Рисуем границу ячейки (только при маленьком зуме или если надо)
-                    if (_cellSize <= 40)
-                    {
-                        using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
-                        {
-                            canvas.DrawRect(rect, paint);
+                                canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
+                            }
                         }
                     }
                 }
             }
 
-            // Рисуем толстые линии каждые 10 клеток (только если видно)
-            if (_cellSize >= 10)
+            // В САМОМ КОНЦЕ рисуем границы
+            if (_cellSize <= 50)  // Увеличил порог, чтобы границы были видны почти всегда
             {
+                using (var borderPaint = new SKPaint
+                {
+                    Color = SKColors.Black,  // Черные границы виднее
+                    StrokeWidth = Math.Max(0.5f, _cellSize / 40),  // Адаптивная толщина
+                    IsStroke = true,
+                    IsAntialias = true
+                })
+                {
+                    for (int y = 0; y < _pattern.Height; y++)
+                    {
+                        for (int x = 0; x < _pattern.Width; x++)
+                        {
+                            float left = x * _cellSize;
+                            float top = y * _cellSize;
+                            SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
+                            canvas.DrawRect(rect, borderPaint);
+                        }
+                    }
+                }
+
+                // Рисуем толстые линии каждые 10 клеток
                 float totalWidth = _pattern.Width * _cellSize;
                 float totalHeight = _pattern.Height * _cellSize;
 
-                using (var thickPaint = new SKPaint { Color = SKColors.DarkGray, StrokeWidth = 1.5f })
+                using (var thickPaint = new SKPaint
+                {
+                    Color = SKColors.DarkBlue,
+                    StrokeWidth = Math.Max(2f, _cellSize / 15),
+                    IsAntialias = true
+                })
                 {
                     for (int x = 10; x < _pattern.Width; x += 10)
                     {
@@ -295,6 +380,99 @@ namespace MauiApp1.Views
                 }
             }
         }
+
+        //private void DrawPattern(SKCanvas canvas)
+        //{
+        //    if (_patternBitmap == null) return;
+
+        //    // Рисуем каждую ячейку
+        //    for (int y = 0; y < _pattern.Height; y++)
+        //    {
+        //        for (int x = 0; x < _pattern.Width; x++)
+        //        {
+        //            float left = x * _cellSize;
+        //            float top = y * _cellSize;
+        //            SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
+
+        //            // Получаем цвет пикселя
+        //            var pixelColor = _patternBitmap.GetPixel(x, y);
+
+        //            // Рисуем заливку
+        //            using (var paint = new SKPaint { Color = pixelColor })
+        //            {
+        //                canvas.DrawRect(rect, paint);
+        //            }
+
+        //            // Рисуем символ, только если ячейка достаточно большая
+        //            if (_cellSize >= 20)
+        //            {
+        //                var embroideryColor = _colors.FirstOrDefault(c =>
+        //                    c.Red == pixelColor.Red &&
+        //                    c.Green == pixelColor.Green &&
+        //                    c.Blue == pixelColor.Blue);
+
+        //                if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+        //                {
+        //                    using (var paint = new SKPaint
+        //                    {
+        //                        Color = GetContrastColor(pixelColor),
+        //                        TextSize = _cellSize * 0.6f,  // 60% от размера клетки
+        //                        TextAlign = SKTextAlign.Center,
+        //                        IsAntialias = true
+        //                    })
+        //                    {
+        //                        // ПРАВИЛЬНОЕ ЦЕНТРИРОВАНИЕ!
+        //                        // Получаем метрики текста для точного позиционирования
+        //                        var bounds = new SKRect();
+        //                        paint.MeasureText(embroideryColor.Symbol, ref bounds);
+
+        //                        // Вычисляем позицию для идеального центрирования по вертикали
+        //                        float centerX = left + (_cellSize / 2);
+        //                        float centerY = top + (_cellSize / 2) + (bounds.Height / 2) - bounds.Top;
+
+        //                        canvas.DrawText(embroideryColor.Symbol, centerX, centerY, paint);
+        //                    }
+        //                }
+        //            }
+
+        //            // Рисуем границу ячейки
+        //            if (_cellSize <= 40)
+        //            {
+        //                using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
+        //                {
+        //                    canvas.DrawRect(rect, paint);
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    // Рисуем толстые линии каждые 10 клеток
+        //    if (_cellSize >= 10)
+        //    {
+        //        float totalWidth = _pattern.Width * _cellSize;
+        //        float totalHeight = _pattern.Height * _cellSize;
+
+        //        using (var thickPaint = new SKPaint
+        //        {
+        //            Color = SKColors.DarkGray,
+        //            StrokeWidth = 1.5f,
+        //            IsAntialias = true
+        //        })
+        //        {
+        //            for (int x = 10; x < _pattern.Width; x += 10)
+        //            {
+        //                float xPos = x * _cellSize;
+        //                canvas.DrawLine(xPos, 0, xPos, totalHeight, thickPaint);
+        //            }
+
+        //            for (int y = 10; y < _pattern.Height; y += 10)
+        //            {
+        //                float yPos = y * _cellSize;
+        //                canvas.DrawLine(0, yPos, totalWidth, yPos, thickPaint);
+        //            }
+        //        }
+        //    }
+        //}
 
         private SKColor GetContrastColor(SKColor color)
         {
