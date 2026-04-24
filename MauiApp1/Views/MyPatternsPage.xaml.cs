@@ -139,25 +139,78 @@ namespace MauiApp1.Views
         //        PatternsCollection.SelectedItem = null;
         //    }
         //}
+        //private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
+        //{
+        //    if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
+        //    {
+        //        // Получаем полную схему с проверкой прав
+        //        var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
+
+        //        if (pattern != null)
+        //        {
+        //            await Navigation.PushAsync(new PatternDetailsPage(pattern, _currentUser));
+        //        }
+        //        else
+        //        {
+        //            await DisplayAlert("Ошибка", "Схема не найдена или доступ запрещен", "OK");
+        //        }
+        //    }
+
+        //    PatternsCollection.SelectedItem = null;
+        //} 
+
         private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
         {
             if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
             {
-                // Получаем полную схему с проверкой прав
+                var action = await DisplayActionSheet(
+                    $"Схема: {selectedPattern.Name}",
+                    "Отмена",
+                    null,
+                    "👁️ Просмотреть схему",
+                    "📊 Посмотреть цвета",
+                    "🗑️ Удалить схему");
+
                 var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
 
-                if (pattern != null)
+                if (pattern == null)
+                {
+                    await DisplayAlert("Ошибка", "Схема не найдена", "OK");
+                    return;
+                }
+
+                if (action == "👁️ Просмотреть схему")
+                {
+                    await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser));
+                }
+                else if (action == "📊 Посмотреть цвета")
                 {
                     await Navigation.PushAsync(new PatternDetailsPage(pattern, _currentUser));
                 }
-                else
+                else if (action == "🗑️ Удалить схему")
                 {
-                    await DisplayAlert("Ошибка", "Схема не найдена или доступ запрещен", "OK");
+                    var confirm = await DisplayAlert("Удаление",
+                        $"Вы уверены, что хотите удалить схему '{selectedPattern.Name}'?",
+                        "Да", "Нет");
+
+                    if (confirm)
+                    {
+                        var deleted = await _databaseService.DeletePattern(pattern.Id, _currentUser.Id);
+                        if (deleted)
+                        {
+                            await DisplayAlert("Успех", "Схема удалена", "OK");
+                            LoadPatterns();
+                        }
+                        else
+                        {
+                            await DisplayAlert("Ошибка", "Не удалось удалить схему", "OK");
+                        }
+                    }
                 }
             }
 
             PatternsCollection.SelectedItem = null;
-        } 
+        }
 
         public class PatternViewModel
         {

@@ -128,6 +128,34 @@ namespace MauiApp1.Services
             return result;
         }
 
+        // Сохранение матрицы цветов в файл
+        public async Task<string> SavePatternMatrix(int[,] colorIndices, List<EmbroideryColor> colors)
+        {
+            return await Task.Run(() =>
+            {
+                var fileName = $"pattern_{Guid.NewGuid()}.pmat";
+                var filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+
+                using (var writer = new StreamWriter(filePath))
+                {
+                    // Записываем размеры
+                    writer.WriteLine($"{colorIndices.GetLength(0)},{colorIndices.GetLength(1)}");
+
+                    // Записываем индексы цветов
+                    for (int y = 0; y < colorIndices.GetLength(1); y++)
+                    {
+                        for (int x = 0; x < colorIndices.GetLength(0); x++)
+                        {
+                            writer.Write($"{colorIndices[x, y]},");
+                        }
+                        writer.WriteLine();
+                    }
+                }
+
+                return fileName;
+            });
+        }
+
         private string ColorToHex(SKColor color)
         {
             return $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";

@@ -19,5 +19,6 @@ namespace MauiApp1.Models
         // НОВОЕ ПОЛЕ: ID пользователя, которому принадлежит схема
         [Indexed]  // Добавляем индекс для быстрого поиска
         public int UserId { get; set; }
+        public string PatternDataFile { get; set; } // Имя файла с матрицей цветов
     }
 }
