@@ -51,13 +51,123 @@ namespace MauiApp1.Views
             }
         }
 
-        // НОВЫЙ МЕТОД - Сохранение в PNG
         private async void OnSavePngClicked(object sender, EventArgs e)
         {
             try
             {
+                var processor = new ImageProcessor();
+                var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
+
+                // Определяем размер схемы
+                int totalStitches = _pattern.Width * _pattern.Height;
+                bool isLargePattern = totalStitches > 2500;
+
+                string qualityChoice;
+
+                // Если схема большая, предлагаем сразу разделить на страницы
+                if (isLargePattern)
+                {
+                    var split = await DisplayAlert("Большая схема",
+                        $"Схема имеет размер {_pattern.Width}x{_pattern.Height} ({totalStitches} крестиков). " +
+                        $"Разделить на страницы для удобной печати?",
+                        "Да, разделить на страницы", "Нет, одним файлом");
+
+                    if (split)
+                    {
+                        // Выбор размера страницы
+                        var pageSize = await DisplayActionSheet(
+                            "Выберите размер страницы (в крестиках)",
+                            "Отмена",
+                            null,
+                            "📄 Большая (50x50) - как A4",
+                            "📃 Средняя (35x35) - как A5",
+                            "📏 Маленькая (30x30)");
+
+                        if (pageSize == "Отмена") return;
+
+                        int pageWidth = 50, pageHeight = 50;
+                        switch (pageSize)
+                        {
+                            case "📃 Средняя (35x35) - как A5":
+                                pageWidth = 35; pageHeight = 35;
+                                break;
+                            case "📏 Маленькая (30x30)":
+                                pageWidth = 30; pageHeight = 30;
+                                break;
+                        }
+
+                        // Выбор качества для страниц
+                        var cellSize = await DisplayActionSheet(
+                            "Выберите качество изображения для страниц",
+                            "Отмена",
+                            null,
+                            "📱 Маленькое (клетка 15px) - для телефона",
+                            "🖨️ Среднее (клетка 25px) - для печати",
+                            "📄 Большое (клетка 40px) - высокое качество");
+
+                        if (cellSize == "Отмена") return;
+
+                        int selectedCellSize = 25;
+                        switch (cellSize)
+                        {
+                            case "📱 Маленькое (клетка 15px) - для телефона":
+                                selectedCellSize = 15;
+                                break;
+                            case "🖨️ Среднее (клетка 25px) - для печати":
+                                selectedCellSize = 25;
+                                break;
+                            case "📄 Большое (клетка 40px) - высокое качество":
+                                selectedCellSize = 40;
+                                break;
+                        }
+
+                        // Показываем индикатор загрузки
+                        var loading = await DisplayAlert("Сохранение PNG",
+                            "Генерация страниц... Это может занять несколько секунд.",
+                            "Продолжить", "Отмена");
+
+                        if (!loading) return;
+
+                        // Сохраняем постранично
+                        var pngPages = processor.SavePatternAsPages(
+                            _pattern, _colors, colorMatrix,
+                            pageWidth, pageHeight, selectedCellSize, true, true);
+
+                        // Предлагаем сохранить страницы
+                        var action = await DisplayActionSheet(
+                            $"Создано {pngPages.Count} страниц!",
+                            "Отмена",
+                            null,
+                            "💾 Сохранить все на устройство",
+                            "📤 Поделиться всеми страницами");
+
+                        if (action == "💾 Сохранить все на устройство")
+                        {
+                            foreach (var page in pngPages)
+                            {
+                                await SavePngToDevice(page);
+                            }
+                            await DisplayAlert("Успех", $"Сохранено {pngPages.Count} страниц в галерею", "OK");
+                        }
+                        else if (action == "📤 Поделиться всеми страницами")
+                        {
+                            foreach (var page in pngPages)
+                            {
+                                await Share.Default.RequestAsync(new ShareFileRequest
+                                {
+                                    Title = $"{_pattern.Name} - страница {pngPages.IndexOf(page) + 1}",
+                                    File = new ShareFile(page)
+                                });
+                            }
+                        }
+
+                        return;
+                    }
+                }
+
+                // Если схема маленькая ИЛИ пользователь выбрал "Нет, одним файлом"
                 // Показываем диалог выбора размера клетки
-                var cellSize = await DisplayActionSheet(
+                var qualityChoiceNormal = await DisplayActionSheet(
                     "Выберите качество изображения",
                     "Отмена",
                     null,
@@ -65,52 +175,45 @@ namespace MauiApp1.Views
                     "🖨️ Среднее (клетка 25px) - для печати",
                     "📄 Большое (клетка 40px) - высокое качество");
 
-                int selectedCellSize = 25; // по умолчанию
+                if (qualityChoiceNormal == "Отмена") return;
 
-                switch (cellSize)
+                int selectedCellSizeNormal = 25;
+                switch (qualityChoiceNormal)
                 {
                     case "📱 Маленькое (клетка 15px) - для телефона":
-                        selectedCellSize = 15;
+                        selectedCellSizeNormal = 15;
                         break;
                     case "🖨️ Среднее (клетка 25px) - для печати":
-                        selectedCellSize = 25;
+                        selectedCellSizeNormal = 25;
                         break;
                     case "📄 Большое (клетка 40px) - высокое качество":
-                        selectedCellSize = 40;
-                        break;
-                    default:
-                        if (cellSize == "Отмена") return;
+                        selectedCellSizeNormal = 40;
                         break;
                 }
 
                 // Показываем индикатор загрузки
-                var loading = await DisplayAlert("Сохранение PNG",
+                var loadingNormal = await DisplayAlert("Сохранение PNG",
                     "Генерация изображения... Это может занять несколько секунд.",
                     "Продолжить", "Отмена");
 
-                if (!loading) return;
-
-                var processor = new ImageProcessor();
-
-                // Загружаем матрицу цветов
-                var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
+                if (!loadingNormal) return;
 
                 // Сохраняем в PNG
-                var pngPath = processor.SavePatternAsPng(_pattern, _colors, colorMatrix, selectedCellSize, true, true);
+                var pngPath = processor.SavePatternAsPng(_pattern, _colors, colorMatrix, selectedCellSizeNormal, true, true);
 
                 // Предлагаем сохранить или поделиться
-                var action = await DisplayActionSheet(
+                var actionNormal = await DisplayActionSheet(
                     "PNG схема готова!",
                     "Отмена",
                     null,
                     "💾 Сохранить на устройство",
                     "📤 Поделиться");
 
-                if (action == "💾 Сохранить на устройство")
+                if (actionNormal == "💾 Сохранить на устройство")
                 {
                     await SavePngToDevice(pngPath);
                 }
-                else if (action == "📤 Поделиться")
+                else if (actionNormal == "📤 Поделиться")
                 {
                     await Share.Default.RequestAsync(new ShareFileRequest
                     {
@@ -121,7 +224,7 @@ namespace MauiApp1.Views
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Ошибка", $"Не удалось сохранить PNG: {ex.Message}", "OK");
+                await DisplayAlert("Ошибка", $"Не удалось сохранить: {ex.Message}", "OK");
             }
         }
 

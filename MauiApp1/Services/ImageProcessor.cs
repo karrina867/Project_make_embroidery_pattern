@@ -550,7 +550,184 @@ namespace MauiApp1.Services
                 return filePath;
             }
         }
+        /// <summary>
+        /// Сохраняет большую схему в несколько PNG файлов (постранично)
+        /// </summary>
+        public List<string> SavePatternAsPages(
+            EmbroideryPattern pattern,
+            List<EmbroideryColor> colors,
+            int[,] colorMatrix,
+            int pageWidth = 50,   // Ширина страницы в крестиках
+            int pageHeight = 50,  // Высота страницы в крестиках
+            int cellSize = 25,
+            bool showSymbols = true,
+            bool showGrid = true)
+        {
+            var result = new List<string>();
 
+            // Вычисляем количество страниц
+            int pagesX = (int)Math.Ceiling((double)pattern.Width / pageWidth);
+            int pagesY = (int)Math.Ceiling((double)pattern.Height / pageHeight);
+
+            int totalPages = pagesX * pagesY;
+            int currentPage = 0;
+
+            System.Diagnostics.Debug.WriteLine($"Разделение схемы {pattern.Width}x{pattern.Height} на {pagesX}x{pagesY} = {totalPages} страниц");
+
+            // Предварительная подготовка данных
+            var skColors = new SKColor[colors.Count];
+            for (int i = 0; i < colors.Count; i++)
+            {
+                skColors[i] = new SKColor((byte)colors[i].Red, (byte)colors[i].Green, (byte)colors[i].Blue);
+            }
+
+            // Сжимаем 2D матрицу в 1D массив
+            int totalCells = pattern.Width * pattern.Height;
+            var colorIndices = new int[totalCells];
+            for (int y = 0; y < pattern.Height; y++)
+            {
+                for (int x = 0; x < pattern.Width; x++)
+                {
+                    colorIndices[y * pattern.Width + x] = colorMatrix[x, y];
+                }
+            }
+
+            // Создаем каждую страницу
+            for (int pageY = 0; pageY < pagesY; pageY++)
+            {
+                for (int pageX = 0; pageX < pagesX; pageX++)
+                {
+                    currentPage++;
+
+                    // Определяем границы текущей страницы
+                    int startX = pageX * pageWidth;
+                    int startY = pageY * pageHeight;
+                    int endX = Math.Min(startX + pageWidth, pattern.Width);
+                    int endY = Math.Min(startY + pageHeight, pattern.Height);
+
+                    int pageWidthPx = (endX - startX) * cellSize;
+                    int pageHeightPx = (endY - startY) * cellSize;
+
+                    using (var bitmap = new SKBitmap(pageWidthPx, pageHeightPx))
+                    using (var canvas = new SKCanvas(bitmap))
+                    {
+                        // Очищаем белым
+                        canvas.Clear(SKColors.White);
+
+                        // Рисуем клетки
+                        for (int y = startY; y < endY; y++)
+                        {
+                            for (int x = startX; x < endX; x++)
+                            {
+                                int colorIndex = colorIndices[y * pattern.Width + x];
+                                var color = skColors[colorIndex];
+
+                                using (var paint = new SKPaint { Color = color, IsAntialias = false })
+                                {
+                                    float left = (x - startX) * cellSize;
+                                    float top = (y - startY) * cellSize;
+                                    var rect = SKRect.Create(left, top, cellSize, cellSize);
+                                    canvas.DrawRect(rect, paint);
+                                }
+                            }
+                        }
+
+                        // Рисуем символы
+                        if (showSymbols && cellSize >= 20)
+                        {
+                            var textPaints = new SKPaint[colors.Count];
+                            for (int i = 0; i < colors.Count; i++)
+                            {
+                                var contrastColor = GetContrastColorForPng(skColors[i]);
+                                textPaints[i] = new SKPaint
+                                {
+                                    Color = contrastColor,
+                                    TextSize = cellSize * 0.45f,
+                                    TextAlign = SKTextAlign.Center,
+                                    IsAntialias = true
+                                };
+                            }
+
+                            for (int y = startY; y < endY; y++)
+                            {
+                                for (int x = startX; x < endX; x++)
+                                {
+                                    int colorIndex = colorIndices[y * pattern.Width + x];
+                                    var symbol = colors[colorIndex].Symbol;
+
+                                    if (!string.IsNullOrEmpty(symbol))
+                                    {
+                                        float centerX = (x - startX) * cellSize + cellSize / 2;
+                                        float centerY = (y - startY) * cellSize + cellSize / 2 + textPaints[colorIndex].TextSize * 0.35f;
+                                        canvas.DrawText(symbol, centerX, centerY, textPaints[colorIndex]);
+                                    }
+                                }
+                            }
+
+                            foreach (var paint in textPaints)
+                            {
+                                paint?.Dispose();
+                            }
+                        }
+
+                        // Рисуем сетку
+                        if (showGrid && cellSize >= 8)
+                        {
+                            using (var gridPaint = new SKPaint
+                            {
+                                Color = SKColors.Black,
+                                StrokeWidth = Math.Max(0.5f, cellSize / 30f),
+                                IsStroke = true,
+                                IsAntialias = false
+                            })
+                            {
+                                for (int x = 0; x <= (endX - startX); x++)
+                                {
+                                    float xPos = x * cellSize;
+                                    canvas.DrawLine(xPos, 0, xPos, pageHeightPx, gridPaint);
+                                }
+
+                                for (int y = 0; y <= (endY - startY); y++)
+                                {
+                                    float yPos = y * cellSize;
+                                    canvas.DrawLine(0, yPos, pageWidthPx, yPos, gridPaint);
+                                }
+                            }
+                        }
+
+                        // Добавляем информацию о странице
+                        using (var textPaint = new SKPaint
+                        {
+                            Color = SKColors.Black,
+                            TextSize = cellSize * 0.8f,
+                            IsAntialias = true
+                        })
+                        {
+                            string pageInfo = $"Страница {currentPage} из {totalPages} | Строка {pageY + 1} из {pagesY} | Столбец {pageX + 1} из {pagesX}";
+                            canvas.DrawText(pageInfo, 10, pageHeightPx - 10, textPaint);
+                        }
+
+                        // Сохраняем страницу
+                        var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
+                        var fileName = $"{safeName}_стр{pageY + 1}_кол{pageX + 1}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                        var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
+
+                        using (var image = SKImage.FromBitmap(bitmap))
+                        using (var data = image.Encode(SKEncodedImageFormat.Png, 90))
+                        {
+                            using (var stream = File.Create(filePath))
+                            {
+                                data.SaveTo(stream);
+                            }
+                        }
+
+                        result.Add(filePath);
+                    }
+                }
+            }
+
+            return result;
+        }
         private SKColor GetContrastColorForPng(SKColor color)
         {
             // Для PNG используем чёрный или белый текст
