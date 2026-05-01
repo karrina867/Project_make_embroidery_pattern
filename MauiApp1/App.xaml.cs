@@ -7,6 +7,7 @@ namespace MauiApp1
     {
         public App()
         {
+            
             InitializeComponent();
 
 
@@ -14,6 +15,12 @@ namespace MauiApp1
             //var dbService = new DatabaseService();
             //dbService.DeleteDatabase();
             //
+
+
+
+
+            //NavigationPage.SetHasNavigationBar(this, false);
+
 
             MainPage = new NavigationPage(new AuthPage());  // Views.AuthPage можно сократить до AuthPage, если есть using
         }

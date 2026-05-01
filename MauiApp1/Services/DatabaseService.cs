@@ -16,6 +16,9 @@ namespace MauiApp1.Services  // Исправлено пространство и
             _dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "embroidery.db3");
             _imagesPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PatternImages");
 
+
+           // System.Diagnostics.Debug.WriteLine($"DB Path: {_dbPath}"); //показывает, где создается бд
+
             // Создаем папку для изображений, если её нет
             if (!Directory.Exists(_imagesPath))
             {
