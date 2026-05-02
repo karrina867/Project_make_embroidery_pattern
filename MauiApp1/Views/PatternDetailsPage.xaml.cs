@@ -58,168 +58,182 @@ namespace MauiApp1.Views
                 var processor = new ImageProcessor();
                 var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
 
-                // Определяем размер схемы
-                int totalStitches = _pattern.Width * _pattern.Height;
-                bool isLargePattern = totalStitches > 2500;
+                // ШАГ 1: Выбор режима (цветной/контурный)
+                var colorMode = await DisplayActionSheet(
+                    "Выберите режим сохранения",
+                    "Отмена",
+                    null,
+                    "🎨 Цветной",
+                    "⚫ Контурный (только сетка и символы)");
 
-                string qualityChoice;
+                if (colorMode == "Отмена") return;
+                bool isOutline = colorMode == "⚫ Контурный (только сетка и символы)";
 
-                // Если схема большая, предлагаем сразу разделить на страницы
-                if (isLargePattern)
+                // ШАГ 2: Выбор размера клетки (качество)
+                var cellSize = await DisplayActionSheet(
+                    "Выберите размер клетки",
+                    "Отмена",
+                    null,
+                    "📱 Маленькая (15px) - для телефона",
+                    "🖨️ Средняя (25px) - для печати",
+                    "📄 Большая (40px) - высокое качество");
+
+                if (cellSize == "Отмена") return;
+
+                int selectedCellSize = 25;
+                switch (cellSize)
                 {
-                    var split = await DisplayAlert("Большая схема",
-                        $"Схема имеет размер {_pattern.Width}x{_pattern.Height} ({totalStitches} крестиков). " +
-                        $"Разделить на страницы для удобной печати?",
-                        "Да, разделить на страницы", "Нет, одним файлом");
+                    case "📱 Маленькая (15px) - для телефона":
+                        selectedCellSize = 15;
+                        break;
+                    case "📄 Большая (40px) - высокое качество":
+                        selectedCellSize = 40;
+                        break;
+                }
 
-                    if (split)
+                // ШАГ 3: Определяем размер схемы и спрашиваем про разделение на страницы
+                int totalStitches = _pattern.Width * _pattern.Height;
+                bool needSplit = totalStitches > 2500;
+
+                string splitChoice = "📄 Одним файлом";
+                if (needSplit)
+                {
+                    splitChoice = await DisplayActionSheet(
+                        $"Схема имеет размер {_pattern.Width}x{_pattern.Height} ({totalStitches} крестиков).",
+                        "Отмена",
+                        null,
+                        "📄 Одним файлом",
+                        "📚 Разделить на страницы (для удобной печати)");
+
+                    if (splitChoice == "Отмена") return;
+                }
+
+                // ШАГ 4: Если выбрано разделение на страницы - выбираем размер страницы
+                int stitchesPerPage = 50; // по умолчанию
+                if (splitChoice == "📚 Разделить на страницы (для удобной печати)")
+                {
+                    var pageSize = await DisplayActionSheet(
+                        "Выберите размер страницы",
+                        "Отмена",
+                        null,
+                        "📄 Большая (50x70) - как лист A4",
+                        "📃 Средняя (35x50)",
+                        "📏 Маленькая (30x42)");
+
+                    if (pageSize == "Отмена") return;
+
+                    switch (pageSize)
                     {
-                        // Выбор размера страницы
-                        var pageSize = await DisplayActionSheet(
-                            "Выберите размер страницы (в крестиках)",
-                            "Отмена",
-                            null,
-                            "📄 Большая (50x50) - как A4",
-                            "📃 Средняя (35x35) - как A5",
-                            "📏 Маленькая (30x30)");
-
-                        if (pageSize == "Отмена") return;
-
-                        int pageWidth = 50, pageHeight = 50;
-                        switch (pageSize)
-                        {
-                            case "📃 Средняя (35x35) - как A5":
-                                pageWidth = 35; pageHeight = 35;
-                                break;
-                            case "📏 Маленькая (30x30)":
-                                pageWidth = 30; pageHeight = 30;
-                                break;
-                        }
-
-                        // Выбор качества для страниц
-                        var cellSize = await DisplayActionSheet(
-                            "Выберите качество изображения для страниц",
-                            "Отмена",
-                            null,
-                            "📱 Маленькое (клетка 15px) - для телефона",
-                            "🖨️ Среднее (клетка 25px) - для печати",
-                            "📄 Большое (клетка 40px) - высокое качество");
-
-                        if (cellSize == "Отмена") return;
-
-                        int selectedCellSize = 25;
-                        switch (cellSize)
-                        {
-                            case "📱 Маленькое (клетка 15px) - для телефона":
-                                selectedCellSize = 15;
-                                break;
-                            case "🖨️ Среднее (клетка 25px) - для печати":
-                                selectedCellSize = 25;
-                                break;
-                            case "📄 Большое (клетка 40px) - высокое качество":
-                                selectedCellSize = 40;
-                                break;
-                        }
-
-                        // Показываем индикатор загрузки
-                        var loading = await DisplayAlert("Сохранение PNG",
-                            "Генерация страниц... Это может занять несколько секунд.",
-                            "Продолжить", "Отмена");
-
-                        if (!loading) return;
-
-                        // Сохраняем постранично
-                        var pngPages = processor.SavePatternAsPages(
-                            _pattern, _colors, colorMatrix,
-                            pageWidth, pageHeight, selectedCellSize, true, true);
-
-                        // Предлагаем сохранить страницы
-                        var action = await DisplayActionSheet(
-                            $"Создано {pngPages.Count} страниц!",
-                            "Отмена",
-                            null,
-                            "💾 Сохранить все на устройство",
-                            "📤 Поделиться всеми страницами");
-
-                        if (action == "💾 Сохранить все на устройство")
-                        {
-                            foreach (var page in pngPages)
-                            {
-                                await SavePngToDevice(page);
-                            }
-                            await DisplayAlert("Успех", $"Сохранено {pngPages.Count} страниц в галерею", "OK");
-                        }
-                        else if (action == "📤 Поделиться всеми страницами")
-                        {
-                            foreach (var page in pngPages)
-                            {
-                                await Share.Default.RequestAsync(new ShareFileRequest
-                                {
-                                    Title = $"{_pattern.Name} - страница {pngPages.IndexOf(page) + 1}",
-                                    File = new ShareFile(page)
-                                });
-                            }
-                        }
-
-                        return;
+                        case "📃 Средняя (35x50)":
+                            stitchesPerPage = 35;
+                            break;
+                        case "📏 Маленькая (30x42)":
+                            stitchesPerPage = 30;
+                            break;
                     }
                 }
 
-                // Если схема маленькая ИЛИ пользователь выбрал "Нет, одним файлом"
-                // Показываем диалог выбора размера клетки
-                var qualityChoiceNormal = await DisplayActionSheet(
-                    "Выберите качество изображения",
-                    "Отмена",
-                    null,
-                    "📱 Маленькое (клетка 15px) - для телефона",
-                    "🖨️ Среднее (клетка 25px) - для печати",
-                    "📄 Большое (клетка 40px) - высокое качество");
-
-                if (qualityChoiceNormal == "Отмена") return;
-
-                int selectedCellSizeNormal = 25;
-                switch (qualityChoiceNormal)
-                {
-                    case "📱 Маленькое (клетка 15px) - для телефона":
-                        selectedCellSizeNormal = 15;
-                        break;
-                    case "🖨️ Среднее (клетка 25px) - для печати":
-                        selectedCellSizeNormal = 25;
-                        break;
-                    case "📄 Большое (клетка 40px) - высокое качество":
-                        selectedCellSizeNormal = 40;
-                        break;
-                }
-
-                // Показываем индикатор загрузки
-                var loadingNormal = await DisplayAlert("Сохранение PNG",
+                // ШАГ 5: Сообщение о начале генерации
+                var loading = await DisplayAlert("Сохранение",
                     "Генерация изображения... Это может занять несколько секунд.",
                     "Продолжить", "Отмена");
 
-                if (!loadingNormal) return;
+                if (!loading) return;
 
-                // Сохраняем в PNG
-                var pngPath = processor.SavePatternAsPng(_pattern, _colors, colorMatrix, selectedCellSizeNormal, true, true);
-
-                // Предлагаем сохранить или поделиться
-                var actionNormal = await DisplayActionSheet(
-                    "PNG схема готова!",
-                    "Отмена",
-                    null,
-                    "💾 Сохранить на устройство",
-                    "📤 Поделиться");
-
-                if (actionNormal == "💾 Сохранить на устройство")
+                // ШАГ 6: Генерация и сохранение
+                if (splitChoice == "📚 Разделить на страницы (для удобной печати)")
                 {
-                    await SavePngToDevice(pngPath);
-                }
-                else if (actionNormal == "📤 Поделиться")
-                {
-                    await Share.Default.RequestAsync(new ShareFileRequest
+                    List<string> pages;
+
+                    if (isOutline)
                     {
-                        Title = $"Схема вышивки {_pattern.Name}",
-                        File = new ShareFile(pngPath)
-                    });
+                        pages = processor.SavePatternAsOutlineA4Pages(
+                            _pattern, _colors, colorMatrix,
+                            selectedCellSize, true, true, stitchesPerPage);
+                    }
+                    else
+                    {
+                        pages = processor.SavePatternAsA4Pages(
+                            _pattern, _colors, colorMatrix,
+                            selectedCellSize, true, true, stitchesPerPage);
+                    }
+
+                    // ШАГ 7: Сообщение о количестве страниц
+                    var action = await DisplayActionSheet(
+                        $"Создано {pages.Count} страниц!",
+                        "Отмена",
+                        null,
+                        "💾 Сохранить все на устройство",
+                        "📤 Поделиться всеми страницами");
+
+                    if (action == "💾 Сохранить все на устройство")
+                    {
+                        await DisplayAlert("Сохранение",
+                            $"Сохранение {pages.Count} страниц в галерею...",
+                            "OK");
+
+                        for (int i = 0; i < pages.Count; i++)
+                        {
+                            await SavePngToDevice(pages[i]);
+                            if (i < pages.Count - 1)
+                            {
+                                await Task.Delay(300);
+                            }
+                        }
+                        await DisplayAlert("Успех", $"Сохранено {pages.Count} страниц", "OK");
+                    }
+                    else if (action == "📤 Поделиться всеми страницами")
+                    {
+                        await DisplayAlert("Поделиться",
+                            $"Открывается окно для каждой из {pages.Count} страниц...",
+                            "OK");
+
+                        for (int i = 0; i < pages.Count; i++)
+                        {
+                            await Share.Default.RequestAsync(new ShareFileRequest
+                            {
+                                Title = $"{_pattern.Name} - страница {i + 1} из {pages.Count}",
+                                File = new ShareFile(pages[i])
+                            });
+                            if (i < pages.Count - 1)
+                            {
+                                await Task.Delay(500);
+                            }
+                        }
+                    }
+                }
+                else // Одним файлом
+                {
+                    string pngPath;
+
+                    if (isOutline)
+                    {
+                        pngPath = processor.SavePatternAsOutlinePng(_pattern, _colors, colorMatrix, selectedCellSize, true, true);
+                    }
+                    else
+                    {
+                        pngPath = processor.SavePatternAsPng(_pattern, _colors, colorMatrix, selectedCellSize, true, true);
+                    }
+
+                    var action = await DisplayActionSheet(
+                        "PNG схема готова!",
+                        "Отмена",
+                        null,
+                        "💾 Сохранить на устройство",
+                        "📤 Поделиться");
+
+                    if (action == "💾 Сохранить на устройство")
+                    {
+                        await SavePngToDevice(pngPath);
+                    }
+                    else if (action == "📤 Поделиться")
+                    {
+                        await Share.Default.RequestAsync(new ShareFileRequest
+                        {
+                            Title = $"Схема вышивки {_pattern.Name}",
+                            File = new ShareFile(pngPath)
+                        });
+                    }
                 }
             }
             catch (Exception ex)
