@@ -56,6 +56,8 @@ namespace MauiApp1.Services  // Исправлено пространство и
             await _database.CreateTableAsync<User>();
             await _database.CreateTableAsync<EmbroideryPattern>();
             await _database.CreateTableAsync<EmbroideryColor>();
+            await _database.CreateTableAsync<EmbroideryProgress>();
+
         }
 
         private string HashPassword(string password)
@@ -395,6 +397,105 @@ namespace MauiApp1.Services  // Исправлено пространство и
             {
                 return false;
             }
+        }
+
+        #endregion
+
+
+
+
+        #region Методы для работы с прогрессом вышивки
+
+        // Сохранение или обновление прогресса
+        public async Task<bool> SaveProgress(int patternId, int userId, HashSet<(int x, int y)> completedStitches)
+        {
+            try
+            {
+                await Init();
+
+                var progress = await _database.Table<EmbroideryProgress>()
+                    .FirstOrDefaultAsync(p => p.PatternId == patternId && p.UserId == userId);
+
+                // Преобразуем HashSet в строку
+                var stitchesString = string.Join(";", completedStitches.Select(s => $"{s.x},{s.y}"));
+
+                if (progress == null)
+                {
+                    progress = new EmbroideryProgress
+                    {
+                        PatternId = patternId,
+                        UserId = userId,
+                        CompletedStitches = stitchesString,
+                        LastUpdated = DateTime.Now,
+                        PercentComplete = completedStitches.Count * 100 / (patternId > 0 ? 1 : 1) // Временно, обновим позже
+                    };
+                    await _database.InsertAsync(progress);
+                }
+                else
+                {
+                    progress.CompletedStitches = stitchesString;
+                    progress.LastUpdated = DateTime.Now;
+                    await _database.UpdateAsync(progress);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // Получение прогресса для схемы
+        public async Task<HashSet<(int x, int y)>> GetProgress(int patternId, int userId)
+        {
+            try
+            {
+                await Init();
+
+                var progress = await _database.Table<EmbroideryProgress>()
+                    .FirstOrDefaultAsync(p => p.PatternId == patternId && p.UserId == userId);
+
+                if (progress == null || string.IsNullOrEmpty(progress.CompletedStitches))
+                    return new HashSet<(int x, int y)>();
+
+                var result = new HashSet<(int x, int y)>();
+                var stitches = progress.CompletedStitches.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+                foreach (var stitch in stitches)
+                {
+                    var parts = stitch.Split(',');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int x) && int.TryParse(parts[1], out int y))
+                    {
+                        result.Add((x, y));
+                    }
+                }
+
+                return result;
+            }
+            catch
+            {
+                return new HashSet<(int x, int y)>();
+            }
+        }
+
+        // Обновление процента выполнения
+        public async Task UpdatePercentComplete(int patternId, int userId, int totalStitches, int completedStitches)
+        {
+            try
+            {
+                await Init();
+
+                var progress = await _database.Table<EmbroideryProgress>()
+                    .FirstOrDefaultAsync(p => p.PatternId == patternId && p.UserId == userId);
+
+                if (progress != null)
+                {
+                    progress.PercentComplete = completedStitches * 100 / totalStitches;
+                    await _database.UpdateAsync(progress);
+                }
+            }
+            catch { }
         }
 
         #endregion

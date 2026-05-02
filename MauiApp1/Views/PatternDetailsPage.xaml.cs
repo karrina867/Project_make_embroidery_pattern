@@ -359,6 +359,11 @@ namespace MauiApp1.Views
             }
         }
 
+        private async void OnStartEmbroideryClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new PatternProgressPage(_pattern, _currentUser));
+        }
+
         private async void OnDeleteClicked(object sender, EventArgs e)
         {
             var confirm = await DisplayAlert("Удаление",

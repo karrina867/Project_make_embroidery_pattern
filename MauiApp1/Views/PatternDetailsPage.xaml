@@ -112,6 +112,13 @@
                     VerticalOptions="Center"
                     CornerRadius="5"/>
 
+            <Button Text="✂️ Вышивать" 
+            Clicked="OnStartEmbroideryClicked"
+            BackgroundColor="#9C27B0"
+            TextColor="White"
+            HorizontalOptions="FillAndExpand"
+            CornerRadius="5"/>
+
             <Button Text="📋 TXT" 
                     Clicked="OnExportClicked"
                     BackgroundColor="#FF9800"

@@ -14,7 +14,7 @@ namespace MauiApp1
             //удалить потом
             //var dbService = new DatabaseService();
             //dbService.DeleteDatabase();
-            //
+
 
 
 
