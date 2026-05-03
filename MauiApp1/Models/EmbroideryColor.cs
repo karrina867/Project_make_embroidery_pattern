@@ -16,10 +16,12 @@ namespace MauiApp1.Models
         public int Green { get; set; }
         public int Blue { get; set; }
 
-        // ИЗМЕНЕНО: char -> string
-        public string Symbol { get; set; }  // Символ для схемы (например, "A", "B", "●")
+        public string Symbol { get; set; }
 
         public string DMCNumber { get; set; }
+
+        public string GammaNumber { get; set; }  // ← ДОБАВЬТЕ ЭТУ СТРОКУ
+
         public int PixelCount { get; set; }
     }
 }
