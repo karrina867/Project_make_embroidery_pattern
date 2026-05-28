@@ -2,7 +2,6 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.CreatePatternPage"
-             
              Title="Создание схемы">
 
     <ScrollView>
@@ -13,16 +12,30 @@
                    Placeholder="Введите название схемы"/>
 
             <Label Text="Размер схемы" FontSize="16" FontAttributes="Bold"/>
+
             <HorizontalStackLayout Spacing="10">
                 <Entry x:Name="WidthEntry" 
                        Placeholder="Ширина (по горизонтали)"
                        Keyboard="Numeric"
-                       WidthRequest="150"/>
+                       WidthRequest="150"
+                       TextChanged="OnWidthChanged"/>
                 <Label Text="x" FontSize="18" VerticalOptions="Center"/>
                 <Entry x:Name="HeightEntry" 
                        Placeholder="Высота (по вертикали)"
                        Keyboard="Numeric"
-                       WidthRequest="150"/>
+                       WidthRequest="150"
+                       TextChanged="OnHeightChanged"/>
+            </HorizontalStackLayout>
+
+            <!-- Чекбокс для сохранения пропорций -->
+            <HorizontalStackLayout Spacing="10">
+                <CheckBox x:Name="KeepAspectCheckBox" 
+                          IsChecked="True"
+                          VerticalOptions="Center"/>
+                <Label Text="Сохранять пропорции изображения"
+                       FontSize="14"
+                       TextColor="Gray"
+                       VerticalOptions="Center"/>
             </HorizontalStackLayout>
 
             <Label Text="Изображение" FontSize="16" FontAttributes="Bold"/>
@@ -63,4 +76,3 @@
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
-    

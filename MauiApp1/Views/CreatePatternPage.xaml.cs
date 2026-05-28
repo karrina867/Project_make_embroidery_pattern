@@ -1,5 +1,6 @@
 using MauiApp1.Services;
 using MauiApp1.Models;
+using SkiaSharp;
 
 namespace MauiApp1.Views
 {
@@ -7,8 +8,10 @@ namespace MauiApp1.Views
     {
         private readonly DatabaseService _databaseService;
         private readonly User _currentUser;
-        private string _selectedImagePath;  // Сохраняем путь вместо потока
-        private byte[] _selectedImageBytes; // Или сохраняем в байты
+        private string _selectedImagePath;
+        private int _originalImageWidth = 0;
+        private int _originalImageHeight = 0;
+        private bool _isUpdating = false; // Чтобы избежать зацикливания
 
         public CreatePatternPage(User user)
         {
@@ -16,6 +19,7 @@ namespace MauiApp1.Views
             _databaseService = new DatabaseService();
             _currentUser = user;
         }
+
         private async void OnSelectImageClicked(object sender, EventArgs e)
         {
             try
@@ -29,14 +33,23 @@ namespace MauiApp1.Views
                 if (result != null)
                 {
                     _selectedImagePath = result.FullPath;
-
-                    // Показываем превью
                     SelectedImage.Source = ImageSource.FromFile(_selectedImagePath);
 
-                    await AnalyzeImage();
+                    // Получаем оригинальные размеры изображения
+                    using (var stream = File.OpenRead(_selectedImagePath))
+                    using (var bitmap = SKBitmap.Decode(stream))
+                    {
+                        if (bitmap != null)
+                        {
+                            _originalImageWidth = bitmap.Width;
+                            _originalImageHeight = bitmap.Height;
+                        }
+                    }
 
                     SaveButton.IsEnabled = true;
                     MessageLabel.Text = "";
+
+                    await AnalyzeImage();
                 }
             }
             catch (Exception ex)
@@ -45,20 +58,77 @@ namespace MauiApp1.Views
             }
         }
 
+        private void OnWidthChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdating) return;
+
+            if (KeepAspectCheckBox.IsChecked && _originalImageWidth > 0 && _originalImageHeight > 0)
+            {
+                if (int.TryParse(WidthEntry.Text, out int newWidth) && newWidth > 0)
+                {
+                    _isUpdating = true;
+
+                    // Вычисляем высоту по пропорции: newHeight = newWidth * (originalHeight / originalWidth)
+                    int newHeight = (int)(newWidth * (double)_originalImageHeight / _originalImageWidth);
+                    HeightEntry.Text = newHeight.ToString();
+
+                    _isUpdating = false;
+                }
+            }
+
+            AnalyzeImage();
+        }
+
+        private void OnHeightChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdating) return;
+
+            if (KeepAspectCheckBox.IsChecked && _originalImageWidth > 0 && _originalImageHeight > 0)
+            {
+                if (int.TryParse(HeightEntry.Text, out int newHeight) && newHeight > 0)
+                {
+                    _isUpdating = true;
+
+                    // Вычисляем ширину по пропорции: newWidth = newHeight * (originalWidth / originalHeight)
+                    int newWidth = (int)(newHeight * (double)_originalImageWidth / _originalImageHeight);
+                    WidthEntry.Text = newWidth.ToString();
+
+                    _isUpdating = false;
+                }
+            }
+
+            AnalyzeImage();
+        }
+
         private async Task AnalyzeImage()
         {
             try
             {
-                if (!string.IsNullOrEmpty(WidthEntry.Text) && !string.IsNullOrEmpty(HeightEntry.Text) && !string.IsNullOrEmpty(_selectedImagePath))
+                if (!string.IsNullOrEmpty(WidthEntry.Text) &&
+                    !string.IsNullOrEmpty(HeightEntry.Text) &&
+                    !string.IsNullOrEmpty(_selectedImagePath))
                 {
                     int width = int.Parse(WidthEntry.Text);
                     int height = int.Parse(HeightEntry.Text);
 
                     ColorInfoLabel.IsVisible = true;
+
+                    string aspectInfo = "";
+                    if (KeepAspectCheckBox.IsChecked && _originalImageWidth > 0)
+                    {
+                        double originalRatio = (double)_originalImageWidth / _originalImageHeight;
+                        double currentRatio = (double)width / height;
+                        if (Math.Abs(originalRatio - currentRatio) > 0.01)
+                        {
+                            aspectInfo = "\n⚠️ Пропорции отличаются от оригинала!";
+                        }
+                    }
+
                     ColorInfoLabel.Text = $"📊 Анализ изображения:\n" +
                                          $"Размер схемы: {width} x {height} крестиков\n" +
-                                         $"Ожидаемое количество цветов: ~{Math.Min(width * height / 100, 50)}\n" +
-                                         $"Совет: чем меньше размер, тем проще вышивать";
+                                         $"Всего крестиков: {width * height}\n" +
+                                         $"Ожидаемое количество цветов: ~{Math.Min(width * height / 100, 50)}" +
+                                         aspectInfo;
                 }
             }
             catch { }
@@ -66,7 +136,6 @@ namespace MauiApp1.Views
 
         private async void OnSavePatternClicked(object sender, EventArgs e)
         {
-            // Валидация (как была)
             if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
             {
                 MessageLabel.Text = "Введите название схемы";
@@ -96,16 +165,13 @@ namespace MauiApp1.Views
                 SaveButton.IsEnabled = false;
                 SaveButton.Text = "Обработка изображения...";
 
-                // Обрабатываем изображение и получаем матрицу
                 var processor = new ImageProcessor();
                 var (colors, colorMatrix) = await processor.ProcessImageWithMatrix(_selectedImagePath, width, height);
 
                 SaveButton.Text = "Сохранение схемы...";
 
-                // Сохраняем матрицу в файл
                 var matrixFileName = processor.SaveColorMatrix(colorMatrix, PatternNameEntry.Text);
 
-                // Сохраняем оригинальное изображение
                 byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
 
                 using (var stream = new MemoryStream(imageBytes))
@@ -117,14 +183,13 @@ namespace MauiApp1.Views
                         Height = height,
                         ColorCount = colors.Count,
                         CellSize = 30,
-                        PatternDataFile = matrixFileName  // ← Сохраняем имя файла матрицы
+                        PatternDataFile = matrixFileName
                     };
 
                     var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream, _currentUser.Id);
 
                     if (success)
                     {
-                        // Сохраняем цвета
                         await _databaseService.SavePatternColors(patternId, colors);
                         await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
 
@@ -150,14 +215,6 @@ namespace MauiApp1.Views
             {
                 SaveButton.IsEnabled = true;
                 SaveButton.Text = "💾 Сохранить схему";
-            }
-        }
-
-        private void OnWidthHeightChanged(object sender, TextChangedEventArgs e)
-        {
-            if (!string.IsNullOrEmpty(WidthEntry.Text) && !string.IsNullOrEmpty(HeightEntry.Text) && !string.IsNullOrEmpty(_selectedImagePath))
-            {
-                AnalyzeImage();
             }
         }
     }
