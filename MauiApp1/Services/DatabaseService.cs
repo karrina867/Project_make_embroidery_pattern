@@ -446,6 +446,22 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
+        // Добавьте в класс DatabaseService
+        public async Task<bool> UpdatePattern(EmbroideryPattern pattern)
+        {
+            try
+            {
+                await Init();
+                await _database.UpdateAsync(pattern);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+
         // Получение прогресса для схемы
         public async Task<HashSet<(int x, int y)>> GetProgress(int patternId, int userId)
         {

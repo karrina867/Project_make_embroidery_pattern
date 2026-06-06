@@ -21,17 +21,16 @@ namespace MauiApp1.Views
             PatternsCollection.ItemsSource = _filteredPatterns;
         }
 
-        protected override void OnAppearing()
+        protected override async void OnAppearing()  // ← изменили на async
         {
             base.OnAppearing();
-            LoadPatterns();
+            await LoadPatterns();  // ← теперь можно await
         }
 
-        private async void LoadPatterns()
+        private async Task LoadPatterns()  // ← изменили с void на Task
         {
             try
             {
-                // Получаем только схемы текущего пользователя
                 var patterns = await _databaseService.GetUserPatterns(_currentUser.Id);
 
                 _allPatterns.Clear();
@@ -65,7 +64,6 @@ namespace MauiApp1.Views
             }
         }
 
-
         private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
         {
             ApplyFilter();
@@ -90,75 +88,6 @@ namespace MauiApp1.Views
             EmptyLabel.IsVisible = _filteredPatterns.Count == 0;
         }
 
-        //    private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
-        //    {
-        //        if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
-        //        {
-        //            // Спрашиваем, что делать со схемой
-        //            var action = await DisplayActionSheet(
-        //                $"Схема: {selectedPattern.Name}",
-        //                "Отмена",
-        //                null,
-        //                "Посмотреть схему",
-        //                "Удалить схему");
-
-        //            if (action == "Удалить схему")
-        //            {
-        //                var confirm = await DisplayAlert("Удаление",
-        //                    $"Вы уверены, что хотите удалить схему '{selectedPattern.Name}'?",
-        //                    "Да", "Нет");
-
-        //                if (confirm)
-        //                {
-        //                    var pattern = new EmbroideryPattern
-        //                    {
-        //                        Id = selectedPattern.Id,
-        //                        ImageFileName = Path.GetFileName(selectedPattern.ImagePath)
-        //                    };
-
-        //                    var deleted = await _databaseService.DeletePattern(pattern);
-        //                    if (deleted)
-        //                    {
-        //                        await DisplayAlert("Успех", "Схема удалена", "OK");
-        //                        LoadPatterns();
-        //                    }
-        //                    else
-        //                    {
-        //                        await DisplayAlert("Ошибка", "Не удалось удалить схему", "OK");
-        //                    }
-        //                }
-        //            }
-        //            else if (action == "Посмотреть схему")
-        //            {
-        //                // Здесь будет открытие схемы
-        //                await DisplayAlert("Просмотр", "Функция просмотра схемы будет добавлена позже", "OK");
-        //            }
-        //        }
-
-        //        // Сбрасываем выделение
-        //        PatternsCollection.SelectedItem = null;
-        //    }
-        //}
-        //private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
-        //{
-        //    if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
-        //    {
-        //        // Получаем полную схему с проверкой прав
-        //        var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
-
-        //        if (pattern != null)
-        //        {
-        //            await Navigation.PushAsync(new PatternDetailsPage(pattern, _currentUser));
-        //        }
-        //        else
-        //        {
-        //            await DisplayAlert("Ошибка", "Схема не найдена или доступ запрещен", "OK");
-        //        }
-        //    }
-
-        //    PatternsCollection.SelectedItem = null;
-        //} 
-
         private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
         {
             if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
@@ -169,6 +98,7 @@ namespace MauiApp1.Views
                     null,
                     "👁️ Просмотреть схему",
                     "📊 Посмотреть цвета",
+                    "✏️ Переименовать",
                     "🗑️ Удалить схему");
 
                 var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
@@ -187,6 +117,10 @@ namespace MauiApp1.Views
                 {
                     await Navigation.PushAsync(new PatternDetailsPage(pattern, _currentUser));
                 }
+                else if (action == "✏️ Переименовать")
+                {
+                    await RenamePattern(pattern, selectedPattern);
+                }
                 else if (action == "🗑️ Удалить схему")
                 {
                     var confirm = await DisplayAlert("Удаление",
@@ -199,7 +133,7 @@ namespace MauiApp1.Views
                         if (deleted)
                         {
                             await DisplayAlert("Успех", "Схема удалена", "OK");
-                            LoadPatterns();
+                            await LoadPatterns();  // ← теперь можно await
                         }
                         else
                         {
@@ -210,6 +144,32 @@ namespace MauiApp1.Views
             }
 
             PatternsCollection.SelectedItem = null;
+        }
+
+        private async Task RenamePattern(EmbroideryPattern pattern, PatternViewModel viewModel)
+        {
+            var newName = await DisplayPromptAsync("Переименование схемы",
+                "Введите новое название:",
+                initialValue: pattern.Name,
+                maxLength: 50,
+                keyboard: Keyboard.Text);
+
+            if (!string.IsNullOrEmpty(newName) && newName != pattern.Name)
+            {
+                var patterns = await _databaseService.GetUserPatterns(_currentUser.Id);
+                if (patterns.Any(p => p.Name == newName && p.Id != pattern.Id))
+                {
+                    await DisplayAlert("Ошибка", "Схема с таким названием уже существует", "OK");
+                    return;
+                }
+
+                pattern.Name = newName;
+                await _databaseService.UpdatePattern(pattern);
+
+                await LoadPatterns();  // ← теперь можно await
+
+                await DisplayAlert("Успех", "Схема переименована", "OK");
+            }
         }
 
         public class PatternViewModel
