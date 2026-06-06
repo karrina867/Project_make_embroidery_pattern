@@ -24,10 +24,19 @@ namespace MauiApp1.Views
         {
             try
             {
+                // Настройка поддерживаемых форматов изображений
+                var customFileType = new FilePickerFileType(
+                    new Dictionary<DevicePlatform, IEnumerable<string>>
+                    {
+                { DevicePlatform.Android, new[] { "image/jpeg", "image/png", "image/webp" } },
+                { DevicePlatform.iOS, new[] { "public.image" } },
+                { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".webp" } }
+                    });
+
                 var result = await FilePicker.PickAsync(new PickOptions
                 {
                     PickerTitle = "Выберите изображение",
-                    FileTypes = FilePickerFileType.Images
+                    FileTypes = customFileType  // ← используем кастомный тип с поддержкой WEBP
                 });
 
                 if (result != null)
