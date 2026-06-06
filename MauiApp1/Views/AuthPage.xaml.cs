@@ -1,5 +1,5 @@
-using MauiApp1.Services;  // Исправлено пространство имен
-using MauiApp1.Models;    // Добавлено для User
+using MauiApp1.Services;
+using MauiApp1.Models;
 
 namespace MauiApp1.Views
 {
@@ -41,7 +41,7 @@ namespace MauiApp1.Views
             if (success)
             {
                 await DisplayAlert("Успех", message, "OK");
-                await Navigation.PushAsync(new MainMenuPage(user)); // Передаем пользователя
+                await Navigation.PushAsync(new MainMenuPage(user));
             }
             else
             {
@@ -52,22 +52,41 @@ namespace MauiApp1.Views
 
         private async void OnRegisterClicked(object sender, EventArgs e)
         {
+            var login = RegLoginEntry.Text;
+            var email = RegEmailEntry.Text;
+            var password = RegPasswordEntry.Text;
+            var confirmPassword = RegConfirmPasswordEntry.Text;
+
             var (success, message) = await _databaseService.RegisterUser(
-                RegLoginEntry.Text,
-                RegEmailEntry.Text,
-                RegPasswordEntry.Text,
-                RegConfirmPasswordEntry.Text
+                login, email, password, confirmPassword
             );
 
             if (success)
             {
-                await DisplayAlert("Успех", message, "OK");
+                // Очищаем поля регистрации
                 RegLoginEntry.Text = "";
                 RegEmailEntry.Text = "";
                 RegPasswordEntry.Text = "";
                 RegConfirmPasswordEntry.Text = "";
 
-                OnLoginModeClicked(null, null);
+                // Автоматически входим с зарегистрированными данными
+                var (loginSuccess, loginMessage, user) = await _databaseService.LoginUser(login, password);
+
+                if (loginSuccess && user != null)
+                {
+                    await DisplayAlert("Успех", "Регистрация пройдена! Выполняется вход...", "OK");
+                    await Navigation.PushAsync(new MainMenuPage(user));
+                }
+                else
+                {
+                    // Если автоматический вход не сработал, показываем форму входа
+                    await DisplayAlert("Успех", "Регистрация пройдена! Теперь войдите в систему.", "OK");
+                    OnLoginModeClicked(null, null);
+
+                    // Автозаполняем поля входа
+                    LoginOrEmailEntry.Text = login;
+                    LoginPasswordEntry.Text = password;
+                }
             }
             else
             {
