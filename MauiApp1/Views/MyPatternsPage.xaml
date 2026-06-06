@@ -12,6 +12,7 @@
 
         <SearchBar x:Name="SearchBar" 
                    Placeholder="Поиск схем..."
+                   MaxLength="50"
                    TextChanged="OnSearchTextChanged"/>
 
         <CollectionView x:Name="PatternsCollection"

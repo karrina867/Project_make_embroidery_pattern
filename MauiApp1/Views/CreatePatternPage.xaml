@@ -9,7 +9,9 @@
 
             <Label Text="Название схемы" FontSize="16" FontAttributes="Bold"/>
             <Entry x:Name="PatternNameEntry" 
-                   Placeholder="Введите название схемы"/>
+                   Placeholder="Введите название схемы"
+                   MaxLength="50"
+                   />
 
             <Label Text="Размер схемы" FontSize="16" FontAttributes="Bold"/>
 
