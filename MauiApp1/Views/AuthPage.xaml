@@ -9,7 +9,7 @@
         <VerticalStackLayout Spacing="15" Padding="30" VerticalOptions="Center">
 
             <Label x:Name="AppTitleLabel"
-                   Text="Cross"
+                   Text="Кросс"
                    FontSize="48"
                    FontAttributes="Bold"
                    HorizontalOptions="Center"
