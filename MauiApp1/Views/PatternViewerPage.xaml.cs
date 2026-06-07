@@ -20,6 +20,8 @@ namespace MauiApp1.Views
         private float _offsetX = 0;
         private float _offsetY = 0;
 
+        private bool _isFirstLayout = true;
+
         // Для отслеживания активных касаний
         private Dictionary<long, SKPoint> _activeTouches = new Dictionary<long, SKPoint>();
         private float _oldDistance = 0;
@@ -98,38 +100,59 @@ namespace MauiApp1.Views
             }
         }
 
+
         private void FitToScreen()
         {
             if (_patternBitmap == null) return;
 
-            // Если размеры всё ещё не определены, пробуем получить через Dispatch
-            if (_canvasWidth <= 0 || _canvasHeight <= 0)
-            {
-                _canvasWidth = (int)PatternCanvas.Width;
-                _canvasHeight = (int)PatternCanvas.Height;
-            }
-
-            if (_canvasWidth <= 0 || _canvasHeight <= 0)
-            {
-                // Откладываем центрирование на следующий цикл
-                Dispatcher.Dispatch(() => FitToScreen());
-                return;
-            }
+            if (_canvasWidth <= 0 || _canvasHeight <= 0) return;
 
             float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
             float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
 
-            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+            // Берем размер клетки так, чтобы вся схема влезла, и делаем её чуть меньше (на 90%), чтобы были отступы
+            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight) * 0.9f;
             _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
 
             // Центрируем схему
-            _offsetX = (_canvasWidth - _pattern.Width * _cellSize) / 2;
-            _offsetY = (_canvasHeight - _pattern.Height * _cellSize) / 2;
-
-            System.Diagnostics.Debug.WriteLine($"FitToScreen: canvas={_canvasWidth}x{_canvasHeight}, pattern={_pattern.Width}x{_pattern.Height}, cellSize={_cellSize}, offset=({_offsetX},{_offsetY})");
+            _offsetX = (_canvasWidth - _pattern.Width * _cellSize) / 2f;
+            _offsetY = (_canvasHeight - _pattern.Height * _cellSize) / 2f;
 
             PatternCanvas?.InvalidateSurface();
         }
+
+        //private void FitToScreen()
+        //{
+        //    if (_patternBitmap == null) return;
+
+        //    // Если размеры всё ещё не определены, пробуем получить через Dispatch
+        //    if (_canvasWidth <= 0 || _canvasHeight <= 0)
+        //    {
+        //        _canvasWidth = (int)PatternCanvas.Width;
+        //        _canvasHeight = (int)PatternCanvas.Height;
+        //    }
+
+        //    if (_canvasWidth <= 0 || _canvasHeight <= 0)
+        //    {
+        //        // Откладываем центрирование на следующий цикл
+        //        Dispatcher.Dispatch(() => FitToScreen());
+        //        return;
+        //    }
+
+        //    float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
+        //    float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
+
+        //    float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+        //    _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+        //    // Центрируем схему
+        //    _offsetX = (_canvasWidth - _pattern.Width * _cellSize) / 2;
+        //    _offsetY = (_canvasHeight - _pattern.Height * _cellSize) / 2;
+
+        //    System.Diagnostics.Debug.WriteLine($"FitToScreen: canvas={_canvasWidth}x{_canvasHeight}, pattern={_pattern.Width}x{_pattern.Height}, cellSize={_cellSize}, offset=({_offsetX},{_offsetY})");
+
+        //    PatternCanvas?.InvalidateSurface();
+        //}
 
         private async Task LoadPatternBitmap()
         {
@@ -358,6 +381,19 @@ namespace MauiApp1.Views
                     canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
                 }
                 return;
+            }
+
+            if (_isFirstLayout && e.Info.Width > 0 && e.Info.Height > 0)
+            {
+                _canvasWidth = e.Info.Width;
+                _canvasHeight = e.Info.Height;
+
+                // Сбрасываем флаг ДО вызова, чтобы избежать зацикливания
+                _isFirstLayout = false;
+
+                // Вызываем принудительный расчет масштаба
+                FitToScreen();
+                return; // Прерываем текущий кадр, FitToScreen сам вызовет InvalidateSurface() уже с новыми координатами!
             }
 
             canvas.Translate(_offsetX, _offsetY);
