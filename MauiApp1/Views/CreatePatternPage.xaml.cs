@@ -20,25 +20,74 @@ namespace MauiApp1.Views
             _currentUser = user;
         }
 
-       
 
+
+        //private async void OnSelectImageClicked(object sender, EventArgs e)
+        //{
+        //    try
+        //    {
+        //        // Настройка поддерживаемых форматов изображений
+        //        var customFileType = new FilePickerFileType(
+        //            new Dictionary<DevicePlatform, IEnumerable<string>>
+        //            {
+        //        { DevicePlatform.Android, new[] { "image/jpeg", "image/png", "image/webp" } },
+        //        { DevicePlatform.iOS, new[] { "public.image" } },
+        //        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".webp" } }
+        //            });
+
+        //        var result = await FilePicker.PickAsync(new PickOptions
+        //        {
+        //            PickerTitle = "Выберите изображение",
+        //            FileTypes = customFileType
+        //        });
+
+        //        if (result != null)
+        //        {
+        //            _selectedImagePath = result.FullPath;
+        //            SelectedImage.Source = ImageSource.FromFile(_selectedImagePath);
+
+        //            // Показываем изображение и скрываем текст
+        //            SelectedImage.IsVisible = true;
+        //            SelectImageLabel.IsVisible = false;
+
+        //            // Получаем оригинальные размеры изображения
+        //            using (var stream = File.OpenRead(_selectedImagePath))
+        //            using (var bitmap = SKBitmap.Decode(stream))
+        //            {
+        //                if (bitmap != null)
+        //                {
+        //                    _originalImageWidth = bitmap.Width;
+        //                    _originalImageHeight = bitmap.Height;
+        //                }
+        //            }
+
+        //            SaveButton.IsEnabled = true;
+        //            MessageLabel.Text = "";
+
+        //          //  await AnalyzeImage();
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        await DisplayAlert("Ошибка", $"Не удалось загрузить изображение: {ex.Message}", "OK");
+        //    }
+        //}
         private async void OnSelectImageClicked(object sender, EventArgs e)
         {
             try
             {
-                // Настройка поддерживаемых форматов изображений
-                var customFileType = new FilePickerFileType(
-                    new Dictionary<DevicePlatform, IEnumerable<string>>
-                    {
-                { DevicePlatform.Android, new[] { "image/jpeg", "image/png", "image/webp" } },
-                { DevicePlatform.iOS, new[] { "public.image" } },
-                { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".webp" } }
-                    });
-
-                var result = await FilePicker.PickAsync(new PickOptions
+                // Запрашиваем разрешение на доступ к галерее
+                var status = await Permissions.RequestAsync<Permissions.StorageRead>();
+                if (status != PermissionStatus.Granted)
                 {
-                    PickerTitle = "Выберите изображение",
-                    FileTypes = customFileType
+                    await DisplayAlert("Ошибка", "Нет доступа к галерее", "OK");
+                    return;
+                }
+
+                // Открываем галерею с помощью MediaPicker
+                var result = await MediaPicker.PickPhotoAsync(new MediaPickerOptions
+                {
+                    Title = "Выберите изображение из галереи"
                 });
 
                 if (result != null)
@@ -51,7 +100,7 @@ namespace MauiApp1.Views
                     SelectImageLabel.IsVisible = false;
 
                     // Получаем оригинальные размеры изображения
-                    using (var stream = File.OpenRead(_selectedImagePath))
+                    using (var stream = await result.OpenReadAsync())
                     using (var bitmap = SKBitmap.Decode(stream))
                     {
                         if (bitmap != null)
@@ -63,8 +112,6 @@ namespace MauiApp1.Views
 
                     SaveButton.IsEnabled = true;
                     MessageLabel.Text = "";
-
-                  //  await AnalyzeImage();
                 }
             }
             catch (Exception ex)
