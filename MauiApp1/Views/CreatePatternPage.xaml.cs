@@ -100,15 +100,42 @@ namespace MauiApp1.Views
                     SelectImageLabel.IsVisible = false;
 
                     // Получаем оригинальные размеры изображения
-                    using (var stream = File.OpenRead(_selectedImagePath))
-                    using (var bitmap = SKBitmap.Decode(stream))
+                    //using (var stream = File.OpenRead(_selectedImagePath))
+                    //using (var bitmap = SKBitmap.Decode(stream))
+                    //{
+                    //    if (bitmap != null)
+                    //    {
+                    //        _originalImageWidth = bitmap.Width;
+                    //        _originalImageHeight = bitmap.Height;
+                    //    }
+                    //}
+
+                    var processor = new MauiApp1.Services.ImageProcessor(); // Создаем экземпляр обработчика
+                    using (var correctBitmap = processor.FixOrientation(_selectedImagePath))
                     {
-                        if (bitmap != null)
+                        if (correctBitmap != null)
                         {
-                            _originalImageWidth = bitmap.Width;
-                            _originalImageHeight = bitmap.Height;
+                            _originalImageWidth = correctBitmap.Width;
+                            _originalImageHeight = correctBitmap.Height;
+
+                            System.Diagnostics.Debug.WriteLine($"Выбрано фото: реальный размер после разворота = {_originalImageWidth}x{_originalImageHeight}");
+                        }
+                        else
+                        {
+                            // Если вдруг кодек не справился, берем дефолтный старый вариант в качестве запасного
+                            using (var stream = File.OpenRead(_selectedImagePath))
+                            using (var bitmap = SKBitmap.Decode(stream))
+                            {
+                                if (bitmap != null)
+                                {
+                                    _originalImageWidth = bitmap.Width;
+                                    _originalImageHeight = bitmap.Height;
+                                }
+                            }
                         }
                     }
+
+
                     //using (var stream = await result.OpenReadAsync())
                     //using (var bitmap = SKBitmap.Decode(stream))
                     //{

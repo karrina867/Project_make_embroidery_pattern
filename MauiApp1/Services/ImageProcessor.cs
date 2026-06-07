@@ -215,7 +215,7 @@ namespace MauiApp1.Services
             return resized;
         }
 
-        private SKBitmap FixOrientation(string filePath)
+        public SKBitmap FixOrientation(string filePath)
         {
             // 1. Читаем файл через кодек, чтобы узнать его реальную EXIF-ориентацию
             using (var codec = SKCodec.Create(filePath))
