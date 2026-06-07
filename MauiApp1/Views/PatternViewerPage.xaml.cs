@@ -38,23 +38,29 @@ namespace MauiApp1.Views
             _databaseService = new DatabaseService();
             _pattern = pattern;
             _currentUser = user;
+
+            // Подписываемся на событие изменения размера
+            PatternCanvas.SizeChanged += OnCanvasSizeChanged;
         }
 
+        //2.5
         protected override async void OnAppearing()
         {
             base.OnAppearing();
             await LoadPatternData();
         }
 
-        protected override void OnSizeAllocated(double width, double height)
+        private void OnCanvasSizeChanged(object sender, EventArgs e)
         {
-            base.OnSizeAllocated(width, height);
-
-            if (width > 0 && height > 0 && _isLoaded && _patternBitmap != null)
+            if (PatternCanvas.Width > 0 && PatternCanvas.Height > 0)
             {
-                _canvasWidth = (int)width;
-                _canvasHeight = (int)height;
-                FitToScreen();
+                _canvasWidth = (int)PatternCanvas.Width;
+                _canvasHeight = (int)PatternCanvas.Height;
+
+                if (_isLoaded && _patternBitmap != null)
+                {
+                    FitToScreen();
+                }
             }
         }
 
@@ -76,11 +82,14 @@ namespace MauiApp1.Views
 
                 _isLoaded = true;
 
-                // Получаем размеры страницы
-                _canvasWidth = (int)this.Width;
-                _canvasHeight = (int)this.Height;
+                // Если канва уже имеет размеры, центрируем сразу
+                if (PatternCanvas.Width > 0 && PatternCanvas.Height > 0)
+                {
+                    _canvasWidth = (int)PatternCanvas.Width;
+                    _canvasHeight = (int)PatternCanvas.Height;
+                    FitToScreen();
+                }
 
-                FitToScreen();
                 UpdateColorsList();
             }
             catch (Exception ex)
@@ -93,16 +102,20 @@ namespace MauiApp1.Views
         {
             if (_patternBitmap == null) return;
 
-            // Если размеры канвы ещё не определены, пробуем получить их
+            // Если размеры всё ещё не определены, пробуем получить через Dispatch
             if (_canvasWidth <= 0 || _canvasHeight <= 0)
             {
-                _canvasWidth = (int)this.Width;
-                _canvasHeight = (int)this.Height;
+                _canvasWidth = (int)PatternCanvas.Width;
+                _canvasHeight = (int)PatternCanvas.Height;
             }
 
-            if (_canvasWidth <= 0 || _canvasHeight <= 0) return;
+            if (_canvasWidth <= 0 || _canvasHeight <= 0)
+            {
+                // Откладываем центрирование на следующий цикл
+                Dispatcher.Dispatch(() => FitToScreen());
+                return;
+            }
 
-            // Вычисляем размер клетки, чтобы схема поместилась целиком
             float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
             float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
 
@@ -112,6 +125,8 @@ namespace MauiApp1.Views
             // Центрируем схему
             _offsetX = (_canvasWidth - _pattern.Width * _cellSize) / 2;
             _offsetY = (_canvasHeight - _pattern.Height * _cellSize) / 2;
+
+            System.Diagnostics.Debug.WriteLine($"FitToScreen: canvas={_canvasWidth}x{_canvasHeight}, pattern={_pattern.Width}x{_pattern.Height}, cellSize={_cellSize}, offset=({_offsetX},{_offsetY})");
 
             PatternCanvas?.InvalidateSurface();
         }
@@ -239,10 +254,100 @@ namespace MauiApp1.Views
             return luminance > 128 ? SKColors.Black : SKColors.White;
         }
 
+        //private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
+        //{
+        //    var canvas = e.Surface.Canvas;
+        //    canvas.Clear(new SKColor(26, 26, 26));
+
+        //    if (_patternBitmap == null || !_isLoaded)
+        //    {
+        //        using (var paint = new SKPaint { Color = SKColors.White, TextSize = 20, TextAlign = SKTextAlign.Center })
+        //        {
+        //            canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
+        //        }
+        //        return;
+        //    }
+
+        //    canvas.Translate(_offsetX, _offsetY);
+
+        //    // Рисуем клетки
+        //    for (int y = 0; y < _pattern.Height; y++)
+        //    {
+        //        for (int x = 0; x < _pattern.Width; x++)
+        //        {
+        //            float left = x * _cellSize;
+        //            float top = y * _cellSize;
+        //            var rect = SKRect.Create(left, top, _cellSize, _cellSize);
+
+        //            var pixelColor = _patternBitmap.GetPixel(x, y);
+
+        //            using (var paint = new SKPaint { Color = pixelColor })
+        //            {
+        //                canvas.DrawRect(rect, paint);
+        //            }
+
+        //            // Рисуем символ
+        //            if (_cellSize >= 18)
+        //            {
+        //                var embroideryColor = _colors.FirstOrDefault(c =>
+        //                    c.Red == pixelColor.Red &&
+        //                    c.Green == pixelColor.Green &&
+        //                    c.Blue == pixelColor.Blue);
+
+        //                if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+        //                {
+        //                    using (var textPaint = new SKPaint
+        //                    {
+        //                        Color = GetContrastSKColor(pixelColor),
+        //                        TextSize = _cellSize * 0.4f,
+        //                        TextAlign = SKTextAlign.Center,
+        //                        IsAntialias = true
+        //                    })
+        //                    {
+        //                        float centerX = left + _cellSize / 2;
+        //                        float centerY = top + _cellSize / 2 + textPaint.TextSize * 0.35f;
+        //                        canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    // Рисуем чёрные линии между всеми клетками
+        //    using (var blackPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 0.5f, IsStroke = true })
+        //    {
+        //        for (int x = 0; x <= _pattern.Width; x++)
+        //        {
+        //            float xPos = x * _cellSize;
+        //            canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, blackPaint);
+        //        }
+        //        for (int y = 0; y <= _pattern.Height; y++)
+        //        {
+        //            float yPos = y * _cellSize;
+        //            canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, blackPaint);
+        //        }
+        //    }
+
+        //    // Рисуем жирные чёрные линии каждые 10 клеток
+        //    using (var thickPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 3f, IsStroke = true })
+        //    {
+        //        for (int x = 10; x < _pattern.Width; x += 10)
+        //        {
+        //            float xPos = x * _cellSize;
+        //            canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, thickPaint);
+        //        }
+        //        for (int y = 10; y < _pattern.Height; y += 10)
+        //        {
+        //            float yPos = y * _cellSize;
+        //            canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, thickPaint);
+        //        }
+        //    }
+        //}
+
         private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
-            canvas.Clear(new SKColor(26, 26, 26));
+            canvas.Clear(new SKColor(26, 26, 26)); // Тёмный фон
 
             if (_patternBitmap == null || !_isLoaded)
             {
@@ -298,23 +403,23 @@ namespace MauiApp1.Views
                 }
             }
 
-            // Рисуем сетку (тонкие линии между клетками)
-            using (var gridPaint = new SKPaint { Color = new SKColor(100, 100, 100), StrokeWidth = 0.5f, IsStroke = true })
+            // Рисуем светлые линии между всеми клетками (видны на любом фоне)
+            using (var lightPaint = new SKPaint { Color = new SKColor(180, 180, 180), StrokeWidth = 0.5f, IsStroke = true })
             {
                 for (int x = 0; x <= _pattern.Width; x++)
                 {
                     float xPos = x * _cellSize;
-                    canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, gridPaint);
+                    canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, lightPaint);
                 }
                 for (int y = 0; y <= _pattern.Height; y++)
                 {
                     float yPos = y * _cellSize;
-                    canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, gridPaint);
+                    canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, lightPaint);
                 }
             }
 
-            // Рисуем жирные линии каждые 10 клеток
-            using (var thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 2f, IsStroke = true })
+            // Рисуем жирные белые линии каждые 10 клеток
+            using (var thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 3f, IsStroke = true })
             {
                 for (int x = 10; x < _pattern.Width; x += 10)
                 {
@@ -475,6 +580,12 @@ namespace MauiApp1.Views
         private async void OnBackClicked(object sender, EventArgs e)
         {
             await Navigation.PopToRootAsync();
+        }
+
+        protected override void OnDisappearing()
+        {
+            base.OnDisappearing();
+            PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
         }
     }
 }
