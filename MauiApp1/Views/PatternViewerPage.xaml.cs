@@ -254,6 +254,8 @@ namespace MauiApp1.Views
             return luminance > 128 ? SKColors.Black : SKColors.White;
         }
 
+        //FitTo
+
         //private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         //{
         //    var canvas = e.Surface.Canvas;
@@ -525,31 +527,66 @@ namespace MauiApp1.Views
             return (float)Math.Sqrt(dx * dx + dy * dy);
         }
 
+        //private void ClampOffset()
+        //{
+        //    float totalWidth = _pattern.Width * _cellSize;
+        //    float totalHeight = _pattern.Height * _cellSize;
+        //    float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
+        //    float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
+
+        //    if (totalWidth <= _canvasWidth)
+        //    {
+        //        _offsetX = (_canvasWidth - totalWidth) / 2;
+        //    }
+        //    else
+        //    {
+        //        _offsetX = Math.Clamp(_offsetX, -maxOffsetX, 0);
+        //    }
+
+        //    if (totalHeight <= _canvasHeight)
+        //    {
+        //        _offsetY = (_canvasHeight - totalHeight) / 2;
+        //    }
+        //    else
+        //    {
+        //        _offsetY = Math.Clamp(_offsetY, -maxOffsetY, 0);
+        //    }
+        //}
+
         private void ClampOffset()
         {
             float totalWidth = _pattern.Width * _cellSize;
             float totalHeight = _pattern.Height * _cellSize;
-            float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
-            float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
 
+            // --- КОРРЕКТИРОВКА ПО ШИРИНЕ (X) ---
             if (totalWidth <= _canvasWidth)
             {
-                _offsetX = (_canvasWidth - totalWidth) / 2;
+                // Если схема меньше экрана, она ВСЕГДА строго по центру
+                _offsetX = (_canvasWidth - totalWidth) / 2f;
             }
             else
             {
-                _offsetX = Math.Clamp(_offsetX, -maxOffsetX, 0);
+                // Если схема больше экрана, не даем ей улетать за границы видимости
+                float minX = _canvasWidth - totalWidth;
+                float maxX = 0;
+                _offsetX = Math.Clamp(_offsetX, minX, maxX);
             }
 
+            // --- КОРРЕКТИРОВКА ПО ВЫСОТЕ (Y) ---
             if (totalHeight <= _canvasHeight)
             {
-                _offsetY = (_canvasHeight - totalHeight) / 2;
+                // Если схема меньше экрана, она ВСЕГДА строго по центру
+                _offsetY = (_canvasHeight - totalHeight) / 2f;
             }
             else
             {
-                _offsetY = Math.Clamp(_offsetY, -maxOffsetY, 0);
+                // Если схема больше экрана, не даем ей улетать за границы видимости
+                float minY = _canvasHeight - totalHeight;
+                float maxY = 0;
+                _offsetY = Math.Clamp(_offsetY, minY, maxY);
             }
         }
+
 
         private async void OnScrollLeftClicked(object sender, EventArgs e)
         {
