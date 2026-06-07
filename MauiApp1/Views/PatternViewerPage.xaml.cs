@@ -15,7 +15,7 @@ namespace MauiApp1.Views
         private bool _isDmcMode = true;
 
         private float _cellSize = 30;
-        private float _minCellSize = 10;
+        private float _minCellSize = 2;//10
         private float _maxCellSize = 150;
         private float _offsetX = 0;
         private float _offsetY = 0;
