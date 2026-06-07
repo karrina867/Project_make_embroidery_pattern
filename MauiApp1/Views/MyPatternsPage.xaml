@@ -2,7 +2,9 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.MyPatternsPage"
-             Title="Мои схемы">
+             Title="Мои схемы"
+              NavigationPage.HasNavigationBar="False">
+    
 
     <Grid>
         <Grid.RowDefinitions>

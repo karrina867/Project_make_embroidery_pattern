@@ -24,7 +24,15 @@ namespace MauiApp1.Views
 
         private async void OnLogoutClicked(object sender, EventArgs e)
         {
-            await Navigation.PushAsync(new AuthPage());
+            // await Navigation.PushAsync(new AuthPage());
+
+            var authPage = new AuthPage();
+            var navigationPage = new NavigationPage(authPage);
+            NavigationPage.SetHasNavigationBar(navigationPage, false);
+            Application.Current.MainPage = navigationPage;
+
+
+
         }
     }
 }

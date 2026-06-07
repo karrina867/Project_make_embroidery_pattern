@@ -146,6 +146,100 @@ namespace MauiApp1.Views
         private const int MAX_PATTERN_SIZE = 500;
         private const int MAX_PATTERNS_PER_USER = 100;
 
+        //private async void OnSavePatternClicked(object sender, EventArgs e)
+        //{
+        //    // Валидация названия
+        //    if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
+        //    {
+        //        MessageLabel.Text = "Введите название схемы";
+        //        return;
+        //    }
+
+        //    // Проверка размера схемы
+        //    if (!int.TryParse(WidthEntry.Text, out int width) || width <= 0 || width > MAX_PATTERN_SIZE)
+        //    {
+        //        MessageLabel.Text = $"Введите корректную ширину (1-{MAX_PATTERN_SIZE})";
+        //        return;
+        //    }
+
+        //    if (!int.TryParse(HeightEntry.Text, out int height) || height <= 0 || height > MAX_PATTERN_SIZE)
+        //    {
+        //        MessageLabel.Text = $"Введите корректную высоту (1-{MAX_PATTERN_SIZE})";
+        //        return;
+        //    }
+
+        //    // Проверка количества схем пользователя
+        //    var userPatterns = await _databaseService.GetUserPatterns(_currentUser.Id);
+        //    if (userPatterns.Count >= MAX_PATTERNS_PER_USER)
+        //    {
+        //        await DisplayAlert("Ограничение", $"Вы можете создать не более {MAX_PATTERNS_PER_USER} схем", "OK");
+        //        return;
+        //    }
+
+        //    if (string.IsNullOrEmpty(_selectedImagePath))
+        //    {
+        //        MessageLabel.Text = "Выберите изображение";
+        //        return;
+        //    }
+
+        //    try
+        //    {
+        //        SaveButton.IsEnabled = false;
+        //        SaveButton.Text = "Обработка изображения...";
+
+        //        var processor = new ImageProcessor();
+        //        var (colors, colorMatrix) = await processor.ProcessImageWithMatrix(_selectedImagePath, width, height);
+
+        //        SaveButton.Text = "Сохранение схемы...";
+
+        //        var matrixFileName = processor.SaveColorMatrix(colorMatrix, PatternNameEntry.Text);
+
+        //        byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
+
+        //        using (var stream = new MemoryStream(imageBytes))
+        //        {
+        //            var pattern = new EmbroideryPattern
+        //            {
+        //                Name = PatternNameEntry.Text,
+        //                Width = width,
+        //                Height = height,
+        //                ColorCount = colors.Count,
+        //                CellSize = 30,
+        //                PatternDataFile = matrixFileName
+        //            };
+
+        //            var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream, _currentUser.Id);
+
+        //            if (success)
+        //            {
+        //                await _databaseService.SavePatternColors(patternId, colors);
+        //                await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
+
+        //                await DisplayAlert("Успех",
+        //                    $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
+        //                    $"Размер: {width} x {height} крестиков\n" +
+        //                    $"Количество цветов: {colors.Count}",
+        //                    "OK");
+
+        //                await Navigation.PopAsync();
+        //            }
+        //            else
+        //            {
+        //                MessageLabel.Text = message;
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageLabel.Text = $"Ошибка: {ex.Message}";
+        //    }
+        //    finally
+        //    {
+        //        SaveButton.IsEnabled = true;
+        //        SaveButton.Text = "💾 Сохранить схему";
+        //    }
+        //}
+
         private async void OnSavePatternClicked(object sender, EventArgs e)
         {
             // Валидация названия
@@ -196,9 +290,11 @@ namespace MauiApp1.Views
 
                 byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
 
+                EmbroideryPattern pattern = null;  // ← объявляем переменную здесь
+
                 using (var stream = new MemoryStream(imageBytes))
                 {
-                    var pattern = new EmbroideryPattern
+                    pattern = new EmbroideryPattern
                     {
                         Name = PatternNameEntry.Text,
                         Width = width,
@@ -215,30 +311,41 @@ namespace MauiApp1.Views
                         await _databaseService.SavePatternColors(patternId, colors);
                         await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
 
+                        // Получаем сохранённую схему с ID
+                        pattern = await _databaseService.GetPatternById(patternId, _currentUser.Id);
+
                         await DisplayAlert("Успех",
                             $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
                             $"Размер: {width} x {height} крестиков\n" +
                             $"Количество цветов: {colors.Count}",
                             "OK");
 
-                        await Navigation.PopAsync();
+                        // Вместо Navigation.PopAsync() открываем просмотр
+                        if (pattern != null)
+                        {
+                            await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser));
+                        }
+                        else
+                        {
+                            await Navigation.PopAsync();
+                        }
                     }
                     else
                     {
                         MessageLabel.Text = message;
+                        SaveButton.IsEnabled = true;
+                        SaveButton.Text = "💾 Сохранить схему";
                     }
                 }
             }
             catch (Exception ex)
             {
                 MessageLabel.Text = $"Ошибка: {ex.Message}";
-            }
-            finally
-            {
                 SaveButton.IsEnabled = true;
                 SaveButton.Text = "💾 Сохранить схему";
             }
         }
+
         //private async void OnSavePatternClicked(object sender, EventArgs e)
         //{
         //    if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
