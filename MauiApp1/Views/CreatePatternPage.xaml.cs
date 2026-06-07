@@ -100,7 +100,7 @@ namespace MauiApp1.Views
                     SelectImageLabel.IsVisible = false;
 
                     // Получаем оригинальные размеры изображения
-                    using (var stream = await result.OpenReadAsync())
+                    using (var stream = File.OpenRead(_selectedImagePath))
                     using (var bitmap = SKBitmap.Decode(stream))
                     {
                         if (bitmap != null)
@@ -109,6 +109,15 @@ namespace MauiApp1.Views
                             _originalImageHeight = bitmap.Height;
                         }
                     }
+                    //using (var stream = await result.OpenReadAsync())
+                    //using (var bitmap = SKBitmap.Decode(stream))
+                    //{
+                    //    if (bitmap != null)
+                    //    {
+                    //        _originalImageWidth = bitmap.Width;
+                    //        _originalImageHeight = bitmap.Height;
+                    //    }
+                    //}
 
                     SaveButton.IsEnabled = true;
                     MessageLabel.Text = "";

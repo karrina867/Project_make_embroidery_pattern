@@ -14,11 +14,12 @@ namespace MauiApp1.Services
             public List<SKPointI> Positions { get; set; } = new List<SKPointI>();
         }
 
+        //ProcessImageWithMatrix
         public async Task<List<EmbroideryColor>> ProcessImage(string imagePath, int targetWidth, int targetHeight)
         {
             return await Task.Run(() =>
             {
-                using (var originalBitmap = SKBitmap.Decode(imagePath))
+                using (var originalBitmap = FixOrientation(imagePath))
                 {
                     if (originalBitmap == null)
                         throw new Exception("Не удалось загрузить изображение");
@@ -45,7 +46,7 @@ namespace MauiApp1.Services
         {
             return await Task.Run(() =>
             {
-                using (var originalBitmap = SKBitmap.Decode(imagePath))
+                using (var originalBitmap = FixOrientation(imagePath))
                 {
                     if (originalBitmap == null)
                         throw new Exception("Не удалось загрузить изображение");
@@ -148,6 +149,8 @@ namespace MauiApp1.Services
             return closestIndex;
         }
 
+        //// var bitmap = SKBitmap.Decode(filePath);
+
         // Сохранение матрицы в файл
         public string SaveColorMatrix(int[,] matrix, string patternName)
         {
@@ -212,6 +215,89 @@ namespace MauiApp1.Services
             return resized;
         }
 
+        private SKBitmap FixOrientation(string filePath)
+        {
+            // 1. Читаем файл через кодек, чтобы узнать его реальную EXIF-ориентацию
+            using (var codec = SKCodec.Create(filePath))
+            {
+                if (codec == null) return SKBitmap.Decode(filePath);
+
+                // Декодируем базовое изображение
+                var bitmap = SKBitmap.Decode(filePath);
+                if (bitmap == null) return null;
+
+                // Получаем метку ориентации
+                var orientation = codec.EncodedOrigin;
+
+                // Если картинка изначально ориентирована правильно (TopLeft), просто возвращаем её
+                if (orientation == SKEncodedOrigin.TopLeft)
+                {
+                    return bitmap;
+                }
+
+                // Вычисляем, на сколько градусов и как нужно повернуть
+                int degrees = 0;
+                bool flip = false;
+
+                switch (orientation)
+                {
+                    case SKEncodedOrigin.TopRight: // Отразить по горизонтали
+                        flip = true;
+                        break;
+                    case SKEncodedOrigin.BottomRight: // Повернуть на 180 градусов
+                        degrees = 180;
+                        break;
+                    case SKEncodedOrigin.BottomLeft: // Повернуть на 180 и отразить
+                        degrees = 180;
+                        flip = true;
+                        break;
+                    case SKEncodedOrigin.LeftTop: // Повернуть на 90 по часовой и отразить
+                        degrees = 90;
+                        flip = true;
+                        break;
+                    case SKEncodedOrigin.RightTop: // Повернуть на 90 по часовой
+                        degrees = 90;
+                        break;
+                    case SKEncodedOrigin.RightBottom: // Повернуть на 270 по часовой и отразить
+                        degrees = 270;
+                        flip = true;
+                        break;
+                    case SKEncodedOrigin.LeftBottom: // Повернуть на 270 по часовой
+                        degrees = 270;
+                        break;
+                }
+
+                if (degrees == 0 && !flip) return bitmap;
+
+                // Создаем новый битмап с учетом измененных размеров (если поворот на 90 или 270 градусов)
+                bool isSwapped = degrees == 90 || degrees == 270;
+                int newWidth = isSwapped ? bitmap.Height : bitmap.Width;
+                int newHeight = isSwapped ? bitmap.Width : bitmap.Height;
+
+                var rotatedBitmap = new SKBitmap(newWidth, newHeight);
+
+                using (var canvas = new SKCanvas(rotatedBitmap))
+                {
+                    canvas.Clear(SKColors.Transparent);
+
+                    // Сдвигаем холст в центр для корректного поворота
+                    canvas.Translate(newWidth / 2f, newHeight / 2f);
+                    canvas.RotateDegrees(degrees);
+
+                    if (flip)
+                    {
+                        canvas.Scale(-1, 1);
+                    }
+
+                    // Рисуем старую картинку на новый повернутый холст
+                    canvas.DrawBitmap(bitmap, -bitmap.Width / 2f, -bitmap.Height / 2f);
+                }
+
+                bitmap.Dispose(); // Освобождаем память от старого перевернутого битмапа
+                return rotatedBitmap;
+            }
+        }
+        //bitmap = SKBitmap
 
         //private SKBitmap ResizeBitmap(SKBitmap original, int width, int height)
         //{
@@ -1628,7 +1714,7 @@ namespace MauiApp1.Services
                         }
 
                         canvas.Restore();
-
+                        //ProcessImage
                         // Легенда только на первой странице (цветная для контраста)
                         if (hasLegend)
                         {
