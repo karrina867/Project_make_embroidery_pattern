@@ -43,6 +43,17 @@ namespace MauiApp1.Views
 
             // Подписываемся на событие изменения размера
             PatternCanvas.SizeChanged += OnCanvasSizeChanged;
+
+
+#if WINDOWS
+    PatternCanvas.HandlerChanged += (s, e) =>
+    {
+        if (PatternCanvas.Handler?.PlatformView is Microsoft.UI.Xaml.UIElement winView)
+        {
+            winView.PointerWheelChanged += WinUI_PointerWheelChanged;
+        }
+    };
+#endif
         }
 
         //2.5
@@ -472,6 +483,10 @@ namespace MauiApp1.Views
             }
         }
 
+
+
+
+
         private void OnCanvasTouch(object sender, SKTouchEventArgs e)
         {
             long id = e.Id;
@@ -689,5 +704,46 @@ namespace MauiApp1.Views
             base.OnDisappearing();
             PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
         }
+
+
+#if WINDOWS
+private void WinUI_PointerWheelChanged(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+{
+    // 1. Получаем позицию курсора мыши относительно холста SkiaSharp
+    var currentPoint = e.GetCurrentPoint(sender as Microsoft.UI.Xaml.UIElement);
+    if (currentPoint == null) return;
+
+    SKPoint mousePoint = new SKPoint((float)currentPoint.Position.X, (float)currentPoint.Position.Y);
+
+    // 2. Получаем дельту прокрутки колёсика
+    int delta = currentPoint.Properties.MouseWheelDelta;
+    if (delta == 0) return;
+
+    // 3. Считаем масштаб (крутим вперед — увеличиваем, назад — уменьшаем)
+    float scaleFactor = delta > 0 ? 1.1f : 0.9f;
+
+    float newCellSize = _cellSize * scaleFactor;
+    newCellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+    if (newCellSize != _cellSize)
+    {
+        // Масштабируем холст относительно точки курсора
+        _offsetX = mousePoint.X - (mousePoint.X - _offsetX) * (newCellSize / _cellSize);
+        _offsetY = mousePoint.Y - (mousePoint.Y - _offsetY) * (newCellSize / _cellSize);
+        _cellSize = newCellSize;
+
+        // Ограничиваем сдвиг, чтобы схема не улетала
+        ClampOffset();
+
+        // Перерисовываем холст
+        PatternCanvas.InvalidateSurface();
+    }
+
+    // Говорим системе, что событие обработано
+    e.Handled = true;
+}
+#endif
+
+
     }
 }
