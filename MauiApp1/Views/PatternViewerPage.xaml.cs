@@ -1,7 +1,9 @@
+
 using MauiApp1.Services;
 using MauiApp1.Models;
 using SkiaSharp;
 using SkiaSharp.Views.Maui;
+using System.Collections.Generic;
 
 namespace MauiApp1.Views
 {
@@ -11,25 +13,26 @@ namespace MauiApp1.Views
         private readonly EmbroideryPattern _pattern;
         private readonly User _currentUser;
         private List<EmbroideryColor> _colors;
+        private bool _isDmcMode = true;
 
-        // Параметры отображения
-        private float _cellSize = 30; // Размер ячейки в пикселях
-        private float _minCellSize = 5;
-        private float _maxCellSize = 80;
+        private float _cellSize = 30;
+        private float _minCellSize = 10;
+        private float _maxCellSize = 150;
         private float _offsetX = 0;
         private float _offsetY = 0;
 
-        // Для авто-масштабирования
-        private int _canvasWidth = 0;
-        private int _canvasHeight = 0;
-        private bool _isFirstDraw = true;
+        // Для отслеживания активных касаний
+        private Dictionary<long, SKPoint> _activeTouches = new Dictionary<long, SKPoint>();
+        private SKPoint? _pinchCenter;
+        private float _oldDistance = 0;
 
-        // Для отслеживания касаний
+        // Для панорамирования одним пальцем
+        private long _panningTouchId = -1;
         private float _touchStartX, _touchStartY;
-        private bool _isPanning = false;
 
-        // Кэш схемы для быстрой отрисовки
         private SKBitmap _patternBitmap;
+        private int _canvasWidth, _canvasHeight;
+        private bool _isLoaded = false;
 
         public PatternViewerPage(EmbroideryPattern pattern, User user)
         {
@@ -38,8 +41,40 @@ namespace MauiApp1.Views
             _pattern = pattern;
             _currentUser = user;
 
-            // Подписываемся на изменение размеров канвы
             PatternCanvas.SizeChanged += OnCanvasSizeChanged;
+        }
+
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            await LoadPatternData();
+        }
+
+        private async Task LoadPatternData()
+        {
+            try
+            {
+                if (_pattern.UserId != _currentUser.Id)
+                {
+                    await DisplayAlert("Ошибка", "У вас нет доступа к этой схеме", "OK");
+                    await Navigation.PopAsync();
+                    return;
+                }
+
+                _colors = await _databaseService.GetPatternColors(_pattern.Id, _currentUser.Id);
+                PatternNameLabel.Text = _pattern.Name;
+
+                await LoadPatternBitmap();
+
+                _isLoaded = true;
+                FitToScreen();
+
+                UpdateColorsList();
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Ошибка", $"Не удалось загрузить схему: {ex.Message}", "OK");
+            }
         }
 
         private void OnCanvasSizeChanged(object sender, EventArgs e)
@@ -49,40 +84,31 @@ namespace MauiApp1.Views
                 _canvasWidth = (int)PatternCanvas.Width;
                 _canvasHeight = (int)PatternCanvas.Height;
 
-                if (_isFirstDraw)
+                if (_isLoaded && _patternBitmap != null)
                 {
                     FitToScreen();
-                    _isFirstDraw = false;
                 }
             }
         }
 
-        private async void LoadPatternData()
+        private void FitToScreen()
         {
-            try
-            {
-                // Проверяем права доступа
-                if (_pattern.UserId != _currentUser.Id)
-                {
-                    await DisplayAlert("Ошибка", "У вас нет доступа к этой схеме", "OK");
-                    await Navigation.PopAsync();
-                    return;
-                }
+            if (_patternBitmap == null || _canvasWidth == 0 || _canvasHeight == 0)
+                return;
 
-                // Загружаем цвета
-                _colors = await _databaseService.GetPatternColors(_pattern.Id, _currentUser.Id);
+            float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
+            float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
 
-                // Обновляем информацию
-                PatternNameLabel.Text = _pattern.Name;
-                PatternInfoLabel.Text = $"{_pattern.Width} × {_pattern.Height} крестиков | {_pattern.ColorCount} цветов";
+            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+            _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
 
-                // Загружаем схему
-                await LoadPatternBitmap();
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Ошибка", $"Не удалось загрузить схему: {ex.Message}", "OK");
-            }
+            float totalWidth = _pattern.Width * _cellSize;
+            float totalHeight = _pattern.Height * _cellSize;
+
+            _offsetX = (_canvasWidth - totalWidth) / 2;
+            _offsetY = (_canvasHeight - totalHeight) / 2;
+
+            PatternCanvas.InvalidateSurface();
         }
 
         private async Task LoadPatternBitmap()
@@ -96,14 +122,6 @@ namespace MauiApp1.Views
                         var processor = new ImageProcessor();
                         var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
 
-                        // Проверяем соответствие размеров
-                        if (width != _pattern.Width || height != _pattern.Height)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Предупреждение: размеры не совпадают. " +
-                                $"Файл: {width}x{height}, модель: {_pattern.Width}x{_pattern.Height}");
-                        }
-
-                        // Создаем карту цветов по индексам
                         var colorMap = new Dictionary<int, SKColor>();
                         for (int i = 0; i < _colors.Count; i++)
                         {
@@ -113,7 +131,6 @@ namespace MauiApp1.Views
                                 (byte)_colors[i].Blue);
                         }
 
-                        // Создаем битмап из матрицы
                         _patternBitmap = new SKBitmap(width, height);
 
                         for (int x = 0; x < width; x++)
@@ -127,12 +144,10 @@ namespace MauiApp1.Views
                                 }
                             }
                         }
-
-                        System.Diagnostics.Debug.WriteLine($"Схема загружена: {width}x{height}, {_colors.Count} цветов");
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Ошибка загрузки матрицы: {ex.Message}");
+                        System.Diagnostics.Debug.WriteLine($"Ошибка: {ex.Message}");
                         CreateBitmapFromColorsOnly();
                     }
                 }
@@ -145,9 +160,7 @@ namespace MauiApp1.Views
 
         private void CreateBitmapFromColorsOnly()
         {
-            // Для старых схем без матрицы
             _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
-
             for (int x = 0; x < _pattern.Width; x++)
             {
                 for (int y = 0; y < _pattern.Height; y++)
@@ -159,132 +172,91 @@ namespace MauiApp1.Views
             }
         }
 
-        // Главное исправление - авто-масштабирование
-        private void FitToScreen()
+        private void UpdateColorsList()
         {
-            if (_patternBitmap == null || _canvasWidth == 0 || _canvasHeight == 0)
-                return;
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                ColorsStackLayout.Children.Clear();
 
-            // Вычисляем необходимый размер ячейки, чтобы схема поместилась целиком
-            float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
-            float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
+                foreach (var color in _colors)
+                {
+                    var contrastColor = GetContrastColor(color);
 
-            // Выбираем меньший размер, чтобы схема точно поместилась
-            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+                    var frame = new Frame
+                    {
+                        WidthRequest = 60,
+                        HeightRequest = 65,
+                        Padding = 5,
+                        CornerRadius = 8,
+                        BackgroundColor = Color.FromArgb(color.ColorHex),
+                        BorderColor = Colors.Gray,
+                        HasShadow = false
+                    };
 
-            // Ограничиваем минимальный и максимальный размер
-            _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+                    var symbolLabel = new Label
+                    {
+                        Text = color.Symbol,
+                        FontSize = 16,
+                        FontAttributes = FontAttributes.Bold,
+                        TextColor = contrastColor,
+                        HorizontalOptions = LayoutOptions.Center,
+                        VerticalOptions = LayoutOptions.CenterAndExpand
+                    };
 
-            // Центрируем схему
-            float totalWidth = _pattern.Width * _cellSize;
-            float totalHeight = _pattern.Height * _cellSize;
+                    var codeLabel = new Label
+                    {
+                        Text = _isDmcMode ? (color.DMCNumber ?? "—") : (color.GammaNumber ?? "—"),
+                        FontSize = 10,
+                        TextColor = contrastColor,
+                        HorizontalOptions = LayoutOptions.Center,
+                        VerticalOptions = LayoutOptions.End
+                    };
 
-            _offsetX = (_canvasWidth - totalWidth) / 2;
-            _offsetY = (_canvasHeight - totalHeight) / 2;
+                    var stack = new VerticalStackLayout();
+                    stack.Children.Add(symbolLabel);
+                    stack.Children.Add(codeLabel);
+                    frame.Content = stack;
 
-            UpdateZoomLabel();
-            PatternCanvas.InvalidateSurface();
+                    ColorsStackLayout.Children.Add(frame);
+                }
+            });
+        }
+
+        private Color GetContrastColor(EmbroideryColor color)
+        {
+            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
+            return luminance > 128 ? Colors.Black : Colors.White;
+        }
+
+        private SKColor GetContrastSKColor(SKColor color)
+        {
+            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
+            return luminance > 128 ? SKColors.Black : SKColors.White;
         }
 
         private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
-            var info = e.Info;
+            canvas.Clear(new SKColor(26, 26, 26)); // Тёмный фон
 
-            // Обновляем размеры канвы для авто-масштабирования
-            if (_canvasWidth != info.Width || _canvasHeight != info.Height)
+            if (_patternBitmap == null || !_isLoaded)
             {
-                _canvasWidth = info.Width;
-                _canvasHeight = info.Height;
-
-                if (!_isFirstDraw && _patternBitmap != null)
+                using (var paint = new SKPaint { Color = SKColors.White, TextSize = 20, TextAlign = SKTextAlign.Center })
                 {
-                    FitToScreen();
+                    canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
                 }
+                return;
             }
 
-            // Очищаем фон
-            canvas.Clear(SKColors.White);
-
-            if (_patternBitmap == null) return;
-
-            // Применяем смещение (панорамирование)
             canvas.Translate(_offsetX, _offsetY);
 
-            // Отрисовываем схему
-            DrawPattern(canvas);
-        }
-
-        //private void DrawPattern(SKCanvas canvas)
-        //{
-        //    if (_patternBitmap == null) return;
-
-        //    for (int y = 0; y < _pattern.Height; y++)
-        //    {
-        //        for (int x = 0; x < _pattern.Width; x++)
-        //        {
-        //            float left = x * _cellSize;
-        //            float top = y * _cellSize;
-        //            SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
-
-        //            var pixelColor = _patternBitmap.GetPixel(x, y);
-
-        //            // Рисуем заливку
-        //            using (var paint = new SKPaint { Color = pixelColor })
-        //            {
-        //                canvas.DrawRect(rect, paint);
-        //            }
-
-        //            // Рисуем символ
-        //            if (_cellSize >= 20)
-        //            {
-        //                var embroideryColor = _colors.FirstOrDefault(c =>
-        //                    c.Red == pixelColor.Red &&
-        //                    c.Green == pixelColor.Green &&
-        //                    c.Blue == pixelColor.Blue);
-
-        //                if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
-        //                {
-        //                    using (var textPaint = new SKPaint
-        //                    {
-        //                        Color = GetContrastColor(pixelColor),
-        //                        TextSize = _cellSize * 0.5f,
-        //                        IsAntialias = true,
-        //                        TextAlign = SKTextAlign.Center
-        //                    })
-        //                    {
-        //                        // Простой способ центрирования
-        //                        float centerX = left + (_cellSize / 2);
-        //                        float centerY = top + (_cellSize / 2) + (textPaint.TextSize * 0.35f);
-
-        //                        canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
-        //                    }
-        //                }
-        //            }
-
-        //            // Рисуем границу
-        //            if (_cellSize <= 40)
-        //            {
-        //                using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
-        //                {
-        //                    canvas.DrawRect(rect, paint);
-        //                }
-        //            }
-        //        }
-        //    }
-        //}
-        private void DrawPattern(SKCanvas canvas)
-        {
-            if (_patternBitmap == null) return;
-
-            // СНАЧАЛА рисуем все заливки
             for (int y = 0; y < _pattern.Height; y++)
             {
                 for (int x = 0; x < _pattern.Width; x++)
                 {
                     float left = x * _cellSize;
                     float top = y * _cellSize;
-                    SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
+                    var rect = SKRect.Create(left, top, _cellSize, _cellSize);
 
                     var pixelColor = _patternBitmap.GetPixel(x, y);
 
@@ -292,21 +264,9 @@ namespace MauiApp1.Views
                     {
                         canvas.DrawRect(rect, paint);
                     }
-                }
-            }
 
-            // ПОТОМ рисуем символы
-            if (_cellSize >= 20)
-            {
-                for (int y = 0; y < _pattern.Height; y++)
-                {
-                    for (int x = 0; x < _pattern.Width; x++)
+                    if (_cellSize >= 20)
                     {
-                        float left = x * _cellSize;
-                        float top = y * _cellSize;
-
-                        var pixelColor = _patternBitmap.GetPixel(x, y);
-
                         var embroideryColor = _colors.FirstOrDefault(c =>
                             c.Red == pixelColor.Red &&
                             c.Green == pixelColor.Green &&
@@ -316,209 +276,137 @@ namespace MauiApp1.Views
                         {
                             using (var textPaint = new SKPaint
                             {
-                                Color = GetContrastColor(pixelColor),
-                                TextSize = _cellSize * 0.5f,
-                                IsAntialias = true,
-                                TextAlign = SKTextAlign.Center
+                                Color = GetContrastSKColor(pixelColor),
+                                TextSize = _cellSize * 0.45f,
+                                TextAlign = SKTextAlign.Center,
+                                IsAntialias = true
                             })
                             {
-                                float centerX = left + (_cellSize / 2);
-                                float centerY = top + (_cellSize / 2) + (textPaint.TextSize * 0.35f);
-
+                                float centerX = left + _cellSize / 2;
+                                float centerY = top + _cellSize / 2 + textPaint.TextSize * 0.35f;
                                 canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
                             }
                         }
                     }
-                }
-            }
 
-            // В САМОМ КОНЦЕ рисуем границы
-            if (_cellSize <= 50)  // Увеличил порог, чтобы границы были видны почти всегда
-            {
-                using (var borderPaint = new SKPaint
-                {
-                    Color = SKColors.Black,  // Черные границы виднее
-                    StrokeWidth = Math.Max(0.5f, _cellSize / 40),  // Адаптивная толщина
-                    IsStroke = true,
-                    IsAntialias = true
-                })
-                {
-                    for (int y = 0; y < _pattern.Height; y++)
+                    if (_cellSize <= 40)
                     {
-                        for (int x = 0; x < _pattern.Width; x++)
+                        using (var paint = new SKPaint { Color = new SKColor(80, 80, 80), StrokeWidth = 0.5f, IsStroke = true })
                         {
-                            float left = x * _cellSize;
-                            float top = y * _cellSize;
-                            SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
-                            canvas.DrawRect(rect, borderPaint);
+                            canvas.DrawRect(rect, paint);
                         }
                     }
                 }
-
-                // Рисуем толстые линии каждые 10 клеток
-                float totalWidth = _pattern.Width * _cellSize;
-                float totalHeight = _pattern.Height * _cellSize;
-
-                using (var thickPaint = new SKPaint
-                {
-                    Color = SKColors.DarkBlue,
-                    StrokeWidth = Math.Max(2f, _cellSize / 15),
-                    IsAntialias = true
-                })
-                {
-                    for (int x = 10; x < _pattern.Width; x += 10)
-                    {
-                        float xPos = x * _cellSize;
-                        canvas.DrawLine(xPos, 0, xPos, totalHeight, thickPaint);
-                    }
-
-                    for (int y = 10; y < _pattern.Height; y += 10)
-                    {
-                        float yPos = y * _cellSize;
-                        canvas.DrawLine(0, yPos, totalWidth, yPos, thickPaint);
-                    }
-                }
             }
         }
 
-        //private void DrawPattern(SKCanvas canvas)
-        //{
-        //    if (_patternBitmap == null) return;
-
-        //    // Рисуем каждую ячейку
-        //    for (int y = 0; y < _pattern.Height; y++)
-        //    {
-        //        for (int x = 0; x < _pattern.Width; x++)
-        //        {
-        //            float left = x * _cellSize;
-        //            float top = y * _cellSize;
-        //            SKRect rect = SKRect.Create(left, top, _cellSize, _cellSize);
-
-        //            // Получаем цвет пикселя
-        //            var pixelColor = _patternBitmap.GetPixel(x, y);
-
-        //            // Рисуем заливку
-        //            using (var paint = new SKPaint { Color = pixelColor })
-        //            {
-        //                canvas.DrawRect(rect, paint);
-        //            }
-
-        //            // Рисуем символ, только если ячейка достаточно большая
-        //            if (_cellSize >= 20)
-        //            {
-        //                var embroideryColor = _colors.FirstOrDefault(c =>
-        //                    c.Red == pixelColor.Red &&
-        //                    c.Green == pixelColor.Green &&
-        //                    c.Blue == pixelColor.Blue);
-
-        //                if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
-        //                {
-        //                    using (var paint = new SKPaint
-        //                    {
-        //                        Color = GetContrastColor(pixelColor),
-        //                        TextSize = _cellSize * 0.6f,  // 60% от размера клетки
-        //                        TextAlign = SKTextAlign.Center,
-        //                        IsAntialias = true
-        //                    })
-        //                    {
-        //                        // ПРАВИЛЬНОЕ ЦЕНТРИРОВАНИЕ!
-        //                        // Получаем метрики текста для точного позиционирования
-        //                        var bounds = new SKRect();
-        //                        paint.MeasureText(embroideryColor.Symbol, ref bounds);
-
-        //                        // Вычисляем позицию для идеального центрирования по вертикали
-        //                        float centerX = left + (_cellSize / 2);
-        //                        float centerY = top + (_cellSize / 2) + (bounds.Height / 2) - bounds.Top;
-
-        //                        canvas.DrawText(embroideryColor.Symbol, centerX, centerY, paint);
-        //                    }
-        //                }
-        //            }
-
-        //            // Рисуем границу ячейки
-        //            if (_cellSize <= 40)
-        //            {
-        //                using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
-        //                {
-        //                    canvas.DrawRect(rect, paint);
-        //                }
-        //            }
-        //        }
-        //    }
-
-        //    // Рисуем толстые линии каждые 10 клеток
-        //    if (_cellSize >= 10)
-        //    {
-        //        float totalWidth = _pattern.Width * _cellSize;
-        //        float totalHeight = _pattern.Height * _cellSize;
-
-        //        using (var thickPaint = new SKPaint
-        //        {
-        //            Color = SKColors.DarkGray,
-        //            StrokeWidth = 1.5f,
-        //            IsAntialias = true
-        //        })
-        //        {
-        //            for (int x = 10; x < _pattern.Width; x += 10)
-        //            {
-        //                float xPos = x * _cellSize;
-        //                canvas.DrawLine(xPos, 0, xPos, totalHeight, thickPaint);
-        //            }
-
-        //            for (int y = 10; y < _pattern.Height; y += 10)
-        //            {
-        //                float yPos = y * _cellSize;
-        //                canvas.DrawLine(0, yPos, totalWidth, yPos, thickPaint);
-        //            }
-        //        }
-        //    }
-        //}
-
-        private SKColor GetContrastColor(SKColor color)
-        {
-            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
-            return luminance > 128 ? SKColors.Black : SKColors.White;
-        }
-
-        #region Обработка касаний (масштабирование и панорамирование)
-
+        // Обработка касаний с мультитач через словарь
         private void OnCanvasTouch(object sender, SKTouchEventArgs e)
         {
+            long id = e.Id;
+
             if (e.ActionType == SKTouchAction.Pressed)
             {
-                _touchStartX = e.Location.X - _offsetX;
-                _touchStartY = e.Location.Y - _offsetY;
-                _isPanning = true;
-                e.Handled = true;
-            }
-            else if (e.ActionType == SKTouchAction.Moved && _isPanning)
-            {
-                _offsetX = e.Location.X - _touchStartX;
-                _offsetY = e.Location.Y - _touchStartY;
+                // Добавляем новое касание
+                _activeTouches[id] = e.Location;
 
-                // Ограничиваем панорамирование
-                ClampOffset();
-
-                PatternCanvas.InvalidateSurface();
+                if (_activeTouches.Count == 1)
+                {
+                    // Начинаем панорамирование
+                    _panningTouchId = id;
+                    _touchStartX = e.Location.X - _offsetX;
+                    _touchStartY = e.Location.Y - _offsetY;
+                }
+                else if (_activeTouches.Count == 2)
+                {
+                    // Начинаем масштабирование двумя пальцами
+                    _panningTouchId = -1;
+                    var points = _activeTouches.Values.ToList();
+                    _oldDistance = CalculateDistance(points[0], points[1]);
+                }
                 e.Handled = true;
             }
-            else if (e.ActionType == SKTouchAction.Released)
+            else if (e.ActionType == SKTouchAction.Moved)
             {
-                _isPanning = false;
+                // Обновляем позицию касания
+                if (_activeTouches.ContainsKey(id))
+                    _activeTouches[id] = e.Location;
+
+                if (_activeTouches.Count == 1 && _panningTouchId != -1 && _activeTouches.ContainsKey(_panningTouchId))
+                {
+                    // Панорамирование одним пальцем
+                    var point = _activeTouches[_panningTouchId];
+                    _offsetX = point.X - _touchStartX;
+                    _offsetY = point.Y - _touchStartY;
+                    ClampOffset();
+                    PatternCanvas.InvalidateSurface();
+                }
+                else if (_activeTouches.Count == 2)
+                {
+                    // Масштабирование двумя пальцами
+                    var points = _activeTouches.Values.ToList();
+                    float newDistance = CalculateDistance(points[0], points[1]);
+                    if (_oldDistance > 0)
+                    {
+                        float scale = newDistance / _oldDistance;
+                        float newCellSize = _cellSize * scale;
+                        newCellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+                        if (newCellSize != _cellSize)
+                        {
+                            SKPoint center = new SKPoint((points[0].X + points[1].X) / 2, (points[0].Y + points[1].Y) / 2);
+                            _offsetX = center.X - (center.X - _offsetX) * (newCellSize / _cellSize);
+                            _offsetY = center.Y - (center.Y - _offsetY) * (newCellSize / _cellSize);
+                            _cellSize = newCellSize;
+                            ClampOffset();
+                            PatternCanvas.InvalidateSurface();
+                        }
+                    }
+                    _oldDistance = newDistance;
+                }
                 e.Handled = true;
             }
+            else if (e.ActionType == SKTouchAction.Released || e.ActionType == SKTouchAction.Cancelled)
+            {
+                // Удаляем касание
+                _activeTouches.Remove(id);
+                if (_panningTouchId == id)
+                    _panningTouchId = -1;
+
+                if (_activeTouches.Count == 0)
+                {
+                    _oldDistance = 0;
+                }
+                else if (_activeTouches.Count == 1)
+                {
+                    // Если осталось одно касание, то переключаемся на панорамирование
+                    var remaining = _activeTouches.First();
+                    _panningTouchId = remaining.Key;
+                    _touchStartX = remaining.Value.X - _offsetX;
+                    _touchStartY = remaining.Value.Y - _offsetY;
+                }
+                e.Handled = true;
+            }
+            else
+            {
+                e.Handled = true;
+            }
+        }
+
+        private float CalculateDistance(SKPoint p1, SKPoint p2)
+        {
+            float dx = p2.X - p1.X;
+            float dy = p2.Y - p1.Y;
+            return (float)Math.Sqrt(dx * dx + dy * dy);
         }
 
         private void ClampOffset()
         {
             float totalWidth = _pattern.Width * _cellSize;
             float totalHeight = _pattern.Height * _cellSize;
-
-            // Минимальное смещение не дает увести схему за край
             float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
             float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
 
-            // Если схема помещается, центрируем её
             if (totalWidth <= _canvasWidth)
             {
                 _offsetX = (_canvasWidth - totalWidth) / 2;
@@ -538,78 +426,35 @@ namespace MauiApp1.Views
             }
         }
 
-        private void OnZoomInClicked(object sender, EventArgs e)
+        private async void OnScrollLeftClicked(object sender, EventArgs e)
         {
-            float oldCellSize = _cellSize;
-            _cellSize = Math.Min(_cellSize * 1.2f, _maxCellSize);
-
-            // Корректируем смещение, чтобы центр оставался на месте
-            if (_canvasWidth > 0 && _canvasHeight > 0)
-            {
-                float centerX = _canvasWidth / 2 - _offsetX;
-                float centerY = _canvasHeight / 2 - _offsetY;
-                float ratio = _cellSize / oldCellSize;
-                _offsetX = _canvasWidth / 2 - centerX * ratio;
-                _offsetY = _canvasHeight / 2 - centerY * ratio;
-            }
-
-            ClampOffset();
-            UpdateZoomLabel();
-            PatternCanvas.InvalidateSurface();
+            await ColorsScrollView.ScrollToAsync(ColorsScrollView.ScrollX - 150, 0, true);
         }
 
-        private void OnZoomOutClicked(object sender, EventArgs e)
+        private async void OnScrollRightClicked(object sender, EventArgs e)
         {
-            float oldCellSize = _cellSize;
-            _cellSize = Math.Max(_cellSize / 1.2f, _minCellSize);
-
-            // Корректируем смещение
-            if (_canvasWidth > 0 && _canvasHeight > 0)
-            {
-                float centerX = _canvasWidth / 2 - _offsetX;
-                float centerY = _canvasHeight / 2 - _offsetY;
-                float ratio = _cellSize / oldCellSize;
-                _offsetX = _canvasWidth / 2 - centerX * ratio;
-                _offsetY = _canvasHeight / 2 - centerY * ratio;
-            }
-
-            ClampOffset();
-            UpdateZoomLabel();
-            PatternCanvas.InvalidateSurface();
+            await ColorsScrollView.ScrollToAsync(ColorsScrollView.ScrollX + 150, 0, true);
         }
 
-        private void OnResetZoomClicked(object sender, EventArgs e)
+        private void OnDmcClicked(object sender, EventArgs e)
         {
-            FitToScreen();
+            _isDmcMode = true;
+            DmcButton.BackgroundColor = Color.FromArgb("#4CAF50");
+            GammaButton.BackgroundColor = Color.FromArgb("#9E9E9E");
+            UpdateColorsList();
         }
 
-        private void UpdateZoomLabel()
+        private void OnGammaClicked(object sender, EventArgs e)
         {
-            int percent = (int)((_cellSize / 30) * 100);
-            ZoomLabel.Text = $"{percent}%";
+            _isDmcMode = false;
+            DmcButton.BackgroundColor = Color.FromArgb("#9E9E9E");
+            GammaButton.BackgroundColor = Color.FromArgb("#4CAF50");
+            UpdateColorsList();
         }
 
-        #endregion
-
-        private async void OnShowLegendClicked(object sender, EventArgs e)
+        private async void OnBackClicked(object sender, EventArgs e)
         {
-            // Показываем легенду цветов
-            var legend = "━━━━━━ ЦВЕТА И СИМВОЛЫ ━━━━━━\n\n";
-            foreach (var color in _colors)
-            {
-                legend += $"■ {color.Symbol} - {color.ColorHex}";
-                if (!string.IsNullOrEmpty(color.DMCNumber))
-                    legend += $" (DMC: {color.DMCNumber})";
-                legend += $" - {color.PixelCount} шт.\n";
-            }
-
-            await DisplayAlert("Легенда схемы", legend, "OK");
-        }
-
-        protected override void OnAppearing()
-        {
-            base.OnAppearing();
-            LoadPatternData();
+            await Navigation.PopToRootAsync();
         }
 
         protected override void OnDisappearing()
@@ -619,3 +464,790 @@ namespace MauiApp1.Views
         }
     }
 }
+//using MauiApp1.Services;
+//using MauiApp1.Models;
+//using SkiaSharp;
+//using SkiaSharp.Views.Maui;
+
+//namespace MauiApp1.Views
+//{
+//    public partial class PatternViewerPage : ContentPage
+//    {
+//        private readonly DatabaseService _databaseService;
+//        private readonly EmbroideryPattern _pattern;
+//        private readonly User _currentUser;
+//        private List<EmbroideryColor> _colors;
+//        private bool _isDmcMode = true;
+
+//        private float _cellSize = 30;
+//        private float _minCellSize = 10;
+//        private float _maxCellSize = 150;
+//        private float _offsetX = 0;
+//        private float _offsetY = 0;
+
+//        // Для мультитач масштабирования
+//        private float _oldDistance = 0;
+//        private SKPoint _oldPoint1, _oldPoint2;
+
+//        // Для панорамирования
+//        private float _touchStartX, _touchStartY;
+//        private bool _isPanning = false;
+
+//        private SKBitmap _patternBitmap;
+//        private int _canvasWidth, _canvasHeight;
+//        private bool _isLoaded = false;
+
+//        public PatternViewerPage(EmbroideryPattern pattern, User user)
+//        {
+//            InitializeComponent();
+//            _databaseService = new DatabaseService();
+//            _pattern = pattern;
+//            _currentUser = user;
+
+//            PatternCanvas.SizeChanged += OnCanvasSizeChanged;
+//        }
+
+//        protected override async void OnAppearing()
+//        {
+//            base.OnAppearing();
+//            await LoadPatternData();
+//        }
+
+//        private async Task LoadPatternData()
+//        {
+//            try
+//            {
+//                if (_pattern.UserId != _currentUser.Id)
+//                {
+//                    await DisplayAlert("Ошибка", "У вас нет доступа к этой схеме", "OK");
+//                    await Navigation.PopAsync();
+//                    return;
+//                }
+
+//                _colors = await _databaseService.GetPatternColors(_pattern.Id, _currentUser.Id);
+//                PatternNameLabel.Text = _pattern.Name;
+
+//                await LoadPatternBitmap();
+
+//                _isLoaded = true;
+//                FitToScreen();
+
+//                UpdateColorsList();
+//            }
+//            catch (Exception ex)
+//            {
+//                await DisplayAlert("Ошибка", $"Не удалось загрузить схему: {ex.Message}", "OK");
+//            }
+//        }
+
+//        private void OnCanvasSizeChanged(object sender, EventArgs e)
+//        {
+//            if (PatternCanvas.Width > 0 && PatternCanvas.Height > 0)
+//            {
+//                _canvasWidth = (int)PatternCanvas.Width;
+//                _canvasHeight = (int)PatternCanvas.Height;
+
+//                if (_isLoaded && _patternBitmap != null)
+//                {
+//                    FitToScreen();
+//                }
+//            }
+//        }
+
+//        private void FitToScreen()
+//        {
+//            if (_patternBitmap == null || _canvasWidth == 0 || _canvasHeight == 0)
+//                return;
+
+//            float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
+//            float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
+
+//            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+//            _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+//            float totalWidth = _pattern.Width * _cellSize;
+//            float totalHeight = _pattern.Height * _cellSize;
+
+//            _offsetX = (_canvasWidth - totalWidth) / 2;
+//            _offsetY = (_canvasHeight - totalHeight) / 2;
+
+//            PatternCanvas.InvalidateSurface();
+//        }
+
+//        private async Task LoadPatternBitmap()
+//        {
+//            await Task.Run(() =>
+//            {
+//                if (!string.IsNullOrEmpty(_pattern.PatternDataFile))
+//                {
+//                    try
+//                    {
+//                        var processor = new ImageProcessor();
+//                        var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
+
+//                        var colorMap = new Dictionary<int, SKColor>();
+//                        for (int i = 0; i < _colors.Count; i++)
+//                        {
+//                            colorMap[i] = new SKColor(
+//                                (byte)_colors[i].Red,
+//                                (byte)_colors[i].Green,
+//                                (byte)_colors[i].Blue);
+//                        }
+
+//                        _patternBitmap = new SKBitmap(width, height);
+
+//                        for (int x = 0; x < width; x++)
+//                        {
+//                            for (int y = 0; y < height; y++)
+//                            {
+//                                int colorIndex = colorMatrix[x, y];
+//                                if (colorMap.ContainsKey(colorIndex))
+//                                {
+//                                    _patternBitmap.SetPixel(x, y, colorMap[colorIndex]);
+//                                }
+//                            }
+//                        }
+//                    }
+//                    catch (Exception ex)
+//                    {
+//                        System.Diagnostics.Debug.WriteLine($"Ошибка: {ex.Message}");
+//                        CreateBitmapFromColorsOnly();
+//                    }
+//                }
+//                else
+//                {
+//                    CreateBitmapFromColorsOnly();
+//                }
+//            });
+//        }
+
+//        private void CreateBitmapFromColorsOnly()
+//        {
+//            _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
+//            for (int x = 0; x < _pattern.Width; x++)
+//            {
+//                for (int y = 0; y < _pattern.Height; y++)
+//                {
+//                    int colorIndex = (x + y) % _colors.Count;
+//                    var color = _colors[colorIndex];
+//                    _patternBitmap.SetPixel(x, y, new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue));
+//                }
+//            }
+//        }
+
+//        private void UpdateColorsList()
+//        {
+//            MainThread.BeginInvokeOnMainThread(() =>
+//            {
+//                ColorsStackLayout.Children.Clear();
+
+//                foreach (var color in _colors)
+//                {
+//                    var contrastColor = GetContrastColor(color);
+
+//                    var frame = new Frame
+//                    {
+//                        WidthRequest = 60,
+//                        HeightRequest = 65,
+//                        Padding = 5,
+//                        CornerRadius = 8,
+//                        BackgroundColor = Color.FromArgb(color.ColorHex),
+//                        BorderColor = Colors.Gray,
+//                        HasShadow = false
+//                    };
+
+//                    var symbolLabel = new Label
+//                    {
+//                        Text = color.Symbol,
+//                        FontSize = 16,
+//                        FontAttributes = FontAttributes.Bold,
+//                        TextColor = contrastColor,
+//                        HorizontalOptions = LayoutOptions.Center,
+//                        VerticalOptions = LayoutOptions.CenterAndExpand
+//                    };
+
+//                    var codeLabel = new Label
+//                    {
+//                        Text = _isDmcMode ? (color.DMCNumber ?? "—") : (color.GammaNumber ?? "—"),
+//                        FontSize = 10,
+//                        TextColor = contrastColor,
+//                        HorizontalOptions = LayoutOptions.Center,
+//                        VerticalOptions = LayoutOptions.End
+//                    };
+
+//                    var stack = new VerticalStackLayout();
+//                    stack.Children.Add(symbolLabel);
+//                    stack.Children.Add(codeLabel);
+//                    frame.Content = stack;
+
+//                    ColorsStackLayout.Children.Add(frame);
+//                }
+//            });
+//        }
+
+//        private Color GetContrastColor(EmbroideryColor color)
+//        {
+//            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
+//            return luminance > 128 ? Colors.Black : Colors.White;
+//        }
+
+//        private SKColor GetContrastSKColor(SKColor color)
+//        {
+//            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
+//            return luminance > 128 ? SKColors.Black : SKColors.White;
+//        }
+
+//        private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
+//        {
+//            var canvas = e.Surface.Canvas;
+//            canvas.Clear(new SKColor(26, 26, 26)); // Тёмный фон
+
+//            if (_patternBitmap == null || !_isLoaded)
+//            {
+//                using (var paint = new SKPaint { Color = SKColors.White, TextSize = 20, TextAlign = SKTextAlign.Center })
+//                {
+//                    canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
+//                }
+//                return;
+//            }
+
+//            canvas.Translate(_offsetX, _offsetY);
+
+//            for (int y = 0; y < _pattern.Height; y++)
+//            {
+//                for (int x = 0; x < _pattern.Width; x++)
+//                {
+//                    float left = x * _cellSize;
+//                    float top = y * _cellSize;
+//                    var rect = SKRect.Create(left, top, _cellSize, _cellSize);
+
+//                    var pixelColor = _patternBitmap.GetPixel(x, y);
+
+//                    using (var paint = new SKPaint { Color = pixelColor })
+//                    {
+//                        canvas.DrawRect(rect, paint);
+//                    }
+
+//                    if (_cellSize >= 20)
+//                    {
+//                        var embroideryColor = _colors.FirstOrDefault(c =>
+//                            c.Red == pixelColor.Red &&
+//                            c.Green == pixelColor.Green &&
+//                            c.Blue == pixelColor.Blue);
+
+//                        if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+//                        {
+//                            using (var textPaint = new SKPaint
+//                            {
+//                                Color = GetContrastSKColor(pixelColor),
+//                                TextSize = _cellSize * 0.45f,
+//                                TextAlign = SKTextAlign.Center,
+//                                IsAntialias = true
+//                            })
+//                            {
+//                                float centerX = left + _cellSize / 2;
+//                                float centerY = top + _cellSize / 2 + textPaint.TextSize * 0.35f;
+//                                canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
+//                            }
+//                        }
+//                    }
+
+//                    if (_cellSize <= 40)
+//                    {
+//                        using (var paint = new SKPaint { Color = new SKColor(80, 80, 80), StrokeWidth = 0.5f, IsStroke = true })
+//                        {
+//                            canvas.DrawRect(rect, paint);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+
+//        // Мультитач для масштабирования и панорамирования
+//        private void OnCanvasTouch(object sender, SKTouchEventArgs e)
+//        {
+//            if (e.ActionType == SKTouchAction.Pressed)
+//            {
+//                _touchStartX = e.Location.X - _offsetX;
+//                _touchStartY = e.Location.Y - _offsetY;
+//                _isPanning = true;
+//                e.Handled = true;
+//            }
+//            else if (e.ActionType == SKTouchAction.Moved)
+//            {
+//                if (_isPanning)
+//                {
+//                    _offsetX = e.Location.X - _touchStartX;
+//                    _offsetY = e.Location.Y - _touchStartY;
+//                    ClampOffset();
+//                    PatternCanvas.InvalidateSurface();
+//                }
+//                e.Handled = true;
+//            }
+//            else if (e.ActionType == SKTouchAction.Released)
+//            {
+//                _isPanning = false;
+//                e.Handled = true;
+//            }
+//        }
+
+//        // Обновление масштаба и позиции
+//        public void UpdateScaleAndPan(float scale, SKPoint pinchCenter)
+//        {
+//            float newCellSize = _cellSize * scale;
+//            _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+//            _offsetX = pinchCenter.X - (pinchCenter.X - _offsetX) * (_cellSize / newCellSize);
+//            _offsetY = pinchCenter.Y - (pinchCenter.Y - _offsetY) * (_cellSize / newCellSize);
+
+//            ClampOffset();
+//            PatternCanvas.InvalidateSurface();
+//        }
+
+//        private void ClampOffset()
+//        {
+//            float totalWidth = _pattern.Width * _cellSize;
+//            float totalHeight = _pattern.Height * _cellSize;
+//            float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
+//            float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
+
+//            if (totalWidth <= _canvasWidth)
+//            {
+//                _offsetX = (_canvasWidth - totalWidth) / 2;
+//            }
+//            else
+//            {
+//                _offsetX = Math.Clamp(_offsetX, -maxOffsetX, 0);
+//            }
+
+//            if (totalHeight <= _canvasHeight)
+//            {
+//                _offsetY = (_canvasHeight - totalHeight) / 2;
+//            }
+//            else
+//            {
+//                _offsetY = Math.Clamp(_offsetY, -maxOffsetY, 0);
+//            }
+//        }
+
+//        private async void OnScrollLeftClicked(object sender, EventArgs e)
+//        {
+//            await ColorsScrollView.ScrollToAsync(ColorsScrollView.ScrollX - 150, 0, true);
+//        }
+
+//        private async void OnScrollRightClicked(object sender, EventArgs e)
+//        {
+//            await ColorsScrollView.ScrollToAsync(ColorsScrollView.ScrollX + 150, 0, true);
+//        }
+
+//        private void OnDmcClicked(object sender, EventArgs e)
+//        {
+//            _isDmcMode = true;
+//            DmcButton.BackgroundColor = Color.FromArgb("#4CAF50");
+//            GammaButton.BackgroundColor = Color.FromArgb("#9E9E9E");
+//            UpdateColorsList();
+//        }
+
+//        private void OnGammaClicked(object sender, EventArgs e)
+//        {
+//            _isDmcMode = false;
+//            DmcButton.BackgroundColor = Color.FromArgb("#9E9E9E");
+//            GammaButton.BackgroundColor = Color.FromArgb("#4CAF50");
+//            UpdateColorsList();
+//        }
+
+//        private async void OnBackClicked(object sender, EventArgs e)
+//        {
+//            await Navigation.PopToRootAsync();
+//        }
+
+//        protected override void OnDisappearing()
+//        {
+//            base.OnDisappearing();
+//            PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
+//        }
+//    }
+//}
+
+
+////using MauiApp1.Services;
+////using MauiApp1.Models;
+////using SkiaSharp;
+////using SkiaSharp.Views.Maui;
+
+////namespace MauiApp1.Views
+////{
+////    public partial class PatternViewerPage : ContentPage
+////    {
+////        private readonly DatabaseService _databaseService;
+////        private readonly EmbroideryPattern _pattern;
+////        private readonly User _currentUser;
+////        private List<EmbroideryColor> _colors;
+////        private bool _isDmcMode = true;
+
+////        private float _cellSize = 30;
+////        private float _minCellSize = 5;
+////        private float _maxCellSize = 80;
+////        private float _offsetX = 0;
+////        private float _offsetY = 0;
+
+////        private float _touchStartX, _touchStartY;
+////        private bool _isPanning = false;
+
+////        private SKBitmap _patternBitmap;
+////        private int _canvasWidth, _canvasHeight;
+////        private bool _isLoaded = false;
+
+////        public PatternViewerPage(EmbroideryPattern pattern, User user)
+////        {
+////            InitializeComponent();
+////            _databaseService = new DatabaseService();
+////            _pattern = pattern;
+////            _currentUser = user;
+
+////            PatternCanvas.SizeChanged += OnCanvasSizeChanged;
+////        }
+
+////        protected override async void OnAppearing()
+////        {
+////            base.OnAppearing();
+////            await LoadPatternData();
+////        }
+
+////        private async Task LoadPatternData()
+////        {
+////            try
+////            {
+////                if (_pattern.UserId != _currentUser.Id)
+////                {
+////                    await DisplayAlert("Ошибка", "У вас нет доступа к этой схеме", "OK");
+////                    await Navigation.PopAsync();
+////                    return;
+////                }
+
+////                _colors = await _databaseService.GetPatternColors(_pattern.Id, _currentUser.Id);
+
+////                await LoadPatternBitmap();
+
+////                UpdateColorsList();
+
+////                _isLoaded = true;
+////                FitToScreen();
+////            }
+////            catch (Exception ex)
+////            {
+////                await DisplayAlert("Ошибка", $"Не удалось загрузить схему: {ex.Message}", "OK");
+////            }
+////        }
+
+////        private void OnCanvasSizeChanged(object sender, EventArgs e)
+////        {
+////            if (PatternCanvas.Width > 0 && PatternCanvas.Height > 0)
+////            {
+////                _canvasWidth = (int)PatternCanvas.Width;
+////                _canvasHeight = (int)PatternCanvas.Height;
+
+////                if (_isLoaded && _patternBitmap != null)
+////                {
+////                    FitToScreen();
+////                }
+////            }
+////        }
+
+////        private void FitToScreen()
+////        {
+////            if (_patternBitmap == null || _canvasWidth == 0 || _canvasHeight == 0)
+////                return;
+
+////            float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
+////            float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
+
+////            float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
+////            _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
+
+////            float totalWidth = _pattern.Width * _cellSize;
+////            float totalHeight = _pattern.Height * _cellSize;
+
+////            _offsetX = (_canvasWidth - totalWidth) / 2;
+////            _offsetY = (_canvasHeight - totalHeight) / 2;
+
+////            PatternCanvas.InvalidateSurface();
+////        }
+
+////        private async Task LoadPatternBitmap()
+////        {
+////            await Task.Run(() =>
+////            {
+////                if (!string.IsNullOrEmpty(_pattern.PatternDataFile))
+////                {
+////                    try
+////                    {
+////                        var processor = new ImageProcessor();
+////                        var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
+
+////                        var colorMap = new Dictionary<int, SKColor>();
+////                        for (int i = 0; i < _colors.Count; i++)
+////                        {
+////                            colorMap[i] = new SKColor(
+////                                (byte)_colors[i].Red,
+////                                (byte)_colors[i].Green,
+////                                (byte)_colors[i].Blue);
+////                        }
+
+////                        _patternBitmap = new SKBitmap(width, height);
+
+////                        for (int x = 0; x < width; x++)
+////                        {
+////                            for (int y = 0; y < height; y++)
+////                            {
+////                                int colorIndex = colorMatrix[x, y];
+////                                if (colorMap.ContainsKey(colorIndex))
+////                                {
+////                                    _patternBitmap.SetPixel(x, y, colorMap[colorIndex]);
+////                                }
+////                            }
+////                        }
+////                    }
+////                    catch (Exception ex)
+////                    {
+////                        System.Diagnostics.Debug.WriteLine($"Ошибка: {ex.Message}");
+////                        CreateBitmapFromColorsOnly();
+////                    }
+////                }
+////                else
+////                {
+////                    CreateBitmapFromColorsOnly();
+////                }
+////            });
+////        }
+
+////        private void CreateBitmapFromColorsOnly()
+////        {
+////            _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
+////            for (int x = 0; x < _pattern.Width; x++)
+////            {
+////                for (int y = 0; y < _pattern.Height; y++)
+////                {
+////                    int colorIndex = (x + y) % _colors.Count;
+////                    var color = _colors[colorIndex];
+////                    _patternBitmap.SetPixel(x, y, new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue));
+////                }
+////            }
+////        }
+
+////        private void UpdateColorsList()
+////        {
+////            MainThread.BeginInvokeOnMainThread(() =>
+////            {
+////                ColorsStackLayout.Children.Clear();
+
+////                foreach (var color in _colors)
+////                {
+////                    var contrastColor = GetContrastColor(color);
+
+////                    var frame = new Frame
+////                    {
+////                        WidthRequest = 60,
+////                        HeightRequest = 65,
+////                        Padding = 5,
+////                        CornerRadius = 8,
+////                        BackgroundColor = Color.FromArgb(color.ColorHex),
+////                        BorderColor = Colors.Gray,
+////                        HasShadow = false
+////                    };
+
+////                    var symbolLabel = new Label
+////                    {
+////                        Text = color.Symbol,
+////                        FontSize = 16,
+////                        FontAttributes = FontAttributes.Bold,
+////                        TextColor = contrastColor,
+////                        HorizontalOptions = LayoutOptions.Center,
+////                        VerticalOptions = LayoutOptions.CenterAndExpand
+////                    };
+
+////                    var codeLabel = new Label
+////                    {
+////                        Text = _isDmcMode ? (color.DMCNumber ?? "—") : (color.GammaNumber ?? "—"),
+////                        FontSize = 10,
+////                        TextColor = contrastColor,
+////                        HorizontalOptions = LayoutOptions.Center,
+////                        VerticalOptions = LayoutOptions.End
+////                    };
+
+////                    var stack = new VerticalStackLayout();
+////                    stack.Children.Add(symbolLabel);
+////                    stack.Children.Add(codeLabel);
+////                    frame.Content = stack;
+
+////                    ColorsStackLayout.Children.Add(frame);
+////                }
+////            });
+////        }
+
+////        private Color GetContrastColor(EmbroideryColor color)
+////        {
+////            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
+////            return luminance > 128 ? Colors.Black : Colors.White;
+////        }
+
+////        private SKColor GetContrastSKColor(SKColor color)
+////        {
+////            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
+////            return luminance > 128 ? SKColors.Black : SKColors.White;
+////        }
+
+////        private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
+////        {
+////            var canvas = e.Surface.Canvas;
+////            canvas.Clear(SKColors.White);
+
+////            if (_patternBitmap == null || !_isLoaded)
+////            {
+////                using (var paint = new SKPaint { Color = SKColors.Black, TextSize = 20, TextAlign = SKTextAlign.Center })
+////                {
+////                    canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
+////                }
+////                return;
+////            }
+
+////            canvas.Translate(_offsetX, _offsetY);
+
+////            for (int y = 0; y < _pattern.Height; y++)
+////            {
+////                for (int x = 0; x < _pattern.Width; x++)
+////                {
+////                    float left = x * _cellSize;
+////                    float top = y * _cellSize;
+////                    var rect = SKRect.Create(left, top, _cellSize, _cellSize);
+
+////                    var pixelColor = _patternBitmap.GetPixel(x, y);
+
+////                    using (var paint = new SKPaint { Color = pixelColor })
+////                    {
+////                        canvas.DrawRect(rect, paint);
+////                    }
+
+////                    if (_cellSize >= 20)
+////                    {
+////                        var embroideryColor = _colors.FirstOrDefault(c =>
+////                            c.Red == pixelColor.Red &&
+////                            c.Green == pixelColor.Green &&
+////                            c.Blue == pixelColor.Blue);
+
+////                        if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+////                        {
+////                            using (var textPaint = new SKPaint
+////                            {
+////                                Color = GetContrastSKColor(pixelColor),
+////                                TextSize = _cellSize * 0.45f,
+////                                TextAlign = SKTextAlign.Center,
+////                                IsAntialias = true
+////                            })
+////                            {
+////                                float centerX = left + _cellSize / 2;
+////                                float centerY = top + _cellSize / 2 + textPaint.TextSize * 0.35f;
+////                                canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
+////                            }
+////                        }
+////                    }
+
+////                    if (_cellSize <= 40)
+////                    {
+////                        using (var paint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 0.5f, IsStroke = true })
+////                        {
+////                            canvas.DrawRect(rect, paint);
+////                        }
+////                    }
+////                }
+////            }
+////        }
+
+////        private void OnCanvasTouch(object sender, SKTouchEventArgs e)
+////        {
+////            if (e.ActionType == SKTouchAction.Pressed)
+////            {
+////                _touchStartX = e.Location.X - _offsetX;
+////                _touchStartY = e.Location.Y - _offsetY;
+////                _isPanning = true;
+////                e.Handled = true;
+////            }
+////            else if (e.ActionType == SKTouchAction.Moved && _isPanning)
+////            {
+////                _offsetX = e.Location.X - _touchStartX;
+////                _offsetY = e.Location.Y - _touchStartY;
+////                ClampOffset();
+////                PatternCanvas.InvalidateSurface();
+////                e.Handled = true;
+////            }
+////            else if (e.ActionType == SKTouchAction.Released)
+////            {
+////                _isPanning = false;
+////                e.Handled = true;
+////            }
+////        }
+
+////        private void ClampOffset()
+////        {
+////            float totalWidth = _pattern.Width * _cellSize;
+////            float totalHeight = _pattern.Height * _cellSize;
+////            float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
+////            float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
+
+////            if (totalWidth <= _canvasWidth)
+////            {
+////                _offsetX = (_canvasWidth - totalWidth) / 2;
+////            }
+////            else
+////            {
+////                _offsetX = Math.Clamp(_offsetX, -maxOffsetX, 0);
+////            }
+
+////            if (totalHeight <= _canvasHeight)
+////            {
+////                _offsetY = (_canvasHeight - totalHeight) / 2;
+////            }
+////            else
+////            {
+////                _offsetY = Math.Clamp(_offsetY, -maxOffsetY, 0);
+////            }
+////        }
+
+////        private async void OnScrollLeftClicked(object sender, EventArgs e)
+////        {
+////            await ColorsScrollView.ScrollToAsync(0, 0, true);
+////        }
+
+////        private async void OnScrollRightClicked(object sender, EventArgs e)
+////        {
+////            await ColorsScrollView.ScrollToAsync(1000, 0, true);
+////        }
+
+////        private void OnDmcClicked(object sender, EventArgs e)
+////        {
+////            _isDmcMode = true;
+////            DmcButton.BackgroundColor = Color.FromArgb("#4CAF50");
+////            GammaButton.BackgroundColor = Color.FromArgb("#9E9E9E");
+////            UpdateColorsList();
+////        }
+
+////        private void OnGammaClicked(object sender, EventArgs e)
+////        {
+////            _isDmcMode = false;
+////            DmcButton.BackgroundColor = Color.FromArgb("#9E9E9E");
+////            GammaButton.BackgroundColor = Color.FromArgb("#4CAF50");
+////            UpdateColorsList();
+////        }
+
+////        private async void OnBackClicked(object sender, EventArgs e)
+////        {
+////            await Navigation.PopToRootAsync();
+////        }
+
+////        protected override void OnDisappearing()
+////        {
+////            base.OnDisappearing();
+////            PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
+////        }
+////    }
+////}
