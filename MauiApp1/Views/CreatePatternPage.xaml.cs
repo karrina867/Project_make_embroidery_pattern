@@ -213,6 +213,13 @@ namespace MauiApp1.Views
                 return;
             }
 
+            // ДОБАВИТЬ ЭТУ ПРОВЕРКУ:
+            if (PatternNameEntry.Text.Length < 2)
+            {
+                MessageLabel.Text = "Название схемы должно содержать минимум 2 символа";
+                return;
+            }
+
             // Проверка размера схемы
             if (!int.TryParse(WidthEntry.Text, out int width) || width <= 0 || width > MAX_PATTERN_SIZE)
             {
