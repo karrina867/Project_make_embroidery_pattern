@@ -650,10 +650,39 @@ namespace MauiApp1.Views
             UpdateColorsList();
         }
 
+        //private async void OnBackClicked(object sender, EventArgs e)
+        //{
+        //    await Navigation.PopToRootAsync();
+        //}
+
         private async void OnBackClicked(object sender, EventArgs e)
         {
-            await Navigation.PopToRootAsync();
+            try
+            {
+                // 1. Создаем страницу со списком схем и передаем туда текущего пользователя
+                // ВНИМАНИЕ: Замени 'PatternsListPage' на точное название твоего класса страницы со списком схем!
+                var patternsListPage = new MyPatternsPage(_currentUser);
+
+                // 2. Делаем её новой корневой страницей приложения, чтобы очистить историю переходов
+                if (Application.Current?.MainPage is NavigationPage navPage)
+                {
+                    // Переключаем главную страницу на список схем внутри контейнера навигации
+                    Application.Current.MainPage = new NavigationPage(patternsListPage);
+                }
+                else
+                {
+                    // Если NavigationPage не используется глобально
+                    Application.Current.MainPage = patternsListPage;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Ошибка навигации: {ex.Message}");
+                // Запасной вариант, если что-то пошло не так — просто выходим назад
+                await Navigation.PopAsync();
+            }
         }
+
 
         protected override void OnDisappearing()
         {
