@@ -20,6 +20,8 @@ namespace MauiApp1.Views
             _currentUser = user;
         }
 
+       
+
         private async void OnSelectImageClicked(object sender, EventArgs e)
         {
             try
@@ -36,13 +38,17 @@ namespace MauiApp1.Views
                 var result = await FilePicker.PickAsync(new PickOptions
                 {
                     PickerTitle = "Выберите изображение",
-                    FileTypes = customFileType  // ← используем кастомный тип с поддержкой WEBP
+                    FileTypes = customFileType
                 });
 
                 if (result != null)
                 {
                     _selectedImagePath = result.FullPath;
                     SelectedImage.Source = ImageSource.FromFile(_selectedImagePath);
+
+                    // Показываем изображение и скрываем текст
+                    SelectedImage.IsVisible = true;
+                    SelectImageLabel.IsVisible = false;
 
                     // Получаем оригинальные размеры изображения
                     using (var stream = File.OpenRead(_selectedImagePath))
@@ -58,7 +64,7 @@ namespace MauiApp1.Views
                     SaveButton.IsEnabled = true;
                     MessageLabel.Text = "";
 
-                    await AnalyzeImage();
+                  //  await AnalyzeImage();
                 }
             }
             catch (Exception ex)
@@ -85,7 +91,7 @@ namespace MauiApp1.Views
                 }
             }
 
-            AnalyzeImage();
+           // AnalyzeImage();
         }
 
         private void OnHeightChanged(object sender, TextChangedEventArgs e)
@@ -106,140 +112,51 @@ namespace MauiApp1.Views
                 }
             }
 
-            AnalyzeImage();
+           // AnalyzeImage();
         }
 
-        private async Task AnalyzeImage()
-        {
-            try
-            {
-                if (!string.IsNullOrEmpty(WidthEntry.Text) &&
-                    !string.IsNullOrEmpty(HeightEntry.Text) &&
-                    !string.IsNullOrEmpty(_selectedImagePath))
-                {
-                    int width = int.Parse(WidthEntry.Text);
-                    int height = int.Parse(HeightEntry.Text);
+        //private async Task AnalyzeImage()
+        //{
+        //    try
+        //    {
+        //        if (!string.IsNullOrEmpty(WidthEntry.Text) &&
+        //            !string.IsNullOrEmpty(HeightEntry.Text) &&
+        //            !string.IsNullOrEmpty(_selectedImagePath))
+        //        {
+        //            int width = int.Parse(WidthEntry.Text);
+        //            int height = int.Parse(HeightEntry.Text);
 
-                    ColorInfoLabel.IsVisible = true;
+        //            ColorInfoLabel.IsVisible = true;
 
-                    string aspectInfo = "";
-                    if (KeepAspectCheckBox.IsChecked && _originalImageWidth > 0)
-                    {
-                        double originalRatio = (double)_originalImageWidth / _originalImageHeight;
-                        double currentRatio = (double)width / height;
-                        if (Math.Abs(originalRatio - currentRatio) > 0.01)
-                        {
-                            aspectInfo = "\n⚠️ Пропорции отличаются от оригинала!";
-                        }
-                    }
+        //            string aspectInfo = "";
+        //            if (KeepAspectCheckBox.IsChecked && _originalImageWidth > 0)
+        //            {
+        //                double originalRatio = (double)_originalImageWidth / _originalImageHeight;
+        //                double currentRatio = (double)width / height;
+        //                if (Math.Abs(originalRatio - currentRatio) > 0.01)
+        //                {
+        //                    aspectInfo = "\n⚠️ Пропорции отличаются от оригинала!";
+        //                }
+        //            }
 
-                    ColorInfoLabel.Text = $"📊 Анализ изображения:\n" +
-                                         $"Размер схемы: {width} x {height} крестиков\n" +
-                                         $"Всего крестиков: {width * height}\n" +
-                                         $"Ожидаемое количество цветов: ~{Math.Min(width * height / 100, 50)}" +
-                                         aspectInfo;
-                }
-            }
-            catch { }
-        }
+        //            ColorInfoLabel.Text = $"📊 Анализ изображения:\n" +
+        //                                 $"Размер схемы: {width} x {height} крестиков\n" +
+        //                                 $"Всего крестиков: {width * height}\n" +
+        //                                 $"Ожидаемое количество цветов: ~{Math.Min(width * height / 100, 50)}" +
+        //                                 aspectInfo;
+        //        }
+        //    }
+        //    catch { }
+        //}
 
         private const int MAX_PATTERN_SIZE = 500;
         private const int MAX_PATTERNS_PER_USER = 100;
 
-        //private async void OnSavePatternClicked(object sender, EventArgs e)
-        //{
-        //    // Валидация названия
-        //    if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
-        //    {
-        //        MessageLabel.Text = "Введите название схемы";
-        //        return;
-        //    }
-
-        //    // Проверка размера схемы
-        //    if (!int.TryParse(WidthEntry.Text, out int width) || width <= 0 || width > MAX_PATTERN_SIZE)
-        //    {
-        //        MessageLabel.Text = $"Введите корректную ширину (1-{MAX_PATTERN_SIZE})";
-        //        return;
-        //    }
-
-        //    if (!int.TryParse(HeightEntry.Text, out int height) || height <= 0 || height > MAX_PATTERN_SIZE)
-        //    {
-        //        MessageLabel.Text = $"Введите корректную высоту (1-{MAX_PATTERN_SIZE})";
-        //        return;
-        //    }
-
-        //    // Проверка количества схем пользователя
-        //    var userPatterns = await _databaseService.GetUserPatterns(_currentUser.Id);
-        //    if (userPatterns.Count >= MAX_PATTERNS_PER_USER)
-        //    {
-        //        await DisplayAlert("Ограничение", $"Вы можете создать не более {MAX_PATTERNS_PER_USER} схем", "OK");
-        //        return;
-        //    }
-
-        //    if (string.IsNullOrEmpty(_selectedImagePath))
-        //    {
-        //        MessageLabel.Text = "Выберите изображение";
-        //        return;
-        //    }
-
-        //    try
-        //    {
-        //        SaveButton.IsEnabled = false;
-        //        SaveButton.Text = "Обработка изображения...";
-
-        //        var processor = new ImageProcessor();
-        //        var (colors, colorMatrix) = await processor.ProcessImageWithMatrix(_selectedImagePath, width, height);
-
-        //        SaveButton.Text = "Сохранение схемы...";
-
-        //        var matrixFileName = processor.SaveColorMatrix(colorMatrix, PatternNameEntry.Text);
-
-        //        byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
-
-        //        using (var stream = new MemoryStream(imageBytes))
-        //        {
-        //            var pattern = new EmbroideryPattern
-        //            {
-        //                Name = PatternNameEntry.Text,
-        //                Width = width,
-        //                Height = height,
-        //                ColorCount = colors.Count,
-        //                CellSize = 30,
-        //                PatternDataFile = matrixFileName
-        //            };
-
-        //            var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream, _currentUser.Id);
-
-        //            if (success)
-        //            {
-        //                await _databaseService.SavePatternColors(patternId, colors);
-        //                await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
-
-        //                await DisplayAlert("Успех",
-        //                    $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
-        //                    $"Размер: {width} x {height} крестиков\n" +
-        //                    $"Количество цветов: {colors.Count}",
-        //                    "OK");
-
-        //                await Navigation.PopAsync();
-        //            }
-        //            else
-        //            {
-        //                MessageLabel.Text = message;
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        MessageLabel.Text = $"Ошибка: {ex.Message}";
-        //    }
-        //    finally
-        //    {
-        //        SaveButton.IsEnabled = true;
-        //        SaveButton.Text = "💾 Сохранить схему";
-        //    }
-        //}
-
+      
+        private async void OnBackClicked(object sender, EventArgs e)
+        {
+            await Navigation.PopAsync();
+        }
         private async void OnSavePatternClicked(object sender, EventArgs e)
         {
             // Валидация названия
@@ -346,88 +263,6 @@ namespace MauiApp1.Views
             }
         }
 
-        //private async void OnSavePatternClicked(object sender, EventArgs e)
-        //{
-        //    if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
-        //    {
-        //        MessageLabel.Text = "Введите название схемы";
-        //        return;
-        //    }
-
-        //    if (!int.TryParse(WidthEntry.Text, out int width) || width <= 0 || width > 500)
-        //    {
-        //        MessageLabel.Text = "Введите корректную ширину (1-500)";
-        //        return;
-        //    }
-
-        //    if (!int.TryParse(HeightEntry.Text, out int height) || height <= 0 || height > 500)
-        //    {
-        //        MessageLabel.Text = "Введите корректную высоту (1-500)";
-        //        return;
-        //    }
-
-        //    if (string.IsNullOrEmpty(_selectedImagePath))
-        //    {
-        //        MessageLabel.Text = "Выберите изображение";
-        //        return;
-        //    }
-
-        //    try
-        //    {
-        //        SaveButton.IsEnabled = false;
-        //        SaveButton.Text = "Обработка изображения...";
-
-        //        var processor = new ImageProcessor();
-        //        var (colors, colorMatrix) = await processor.ProcessImageWithMatrix(_selectedImagePath, width, height);
-
-        //        SaveButton.Text = "Сохранение схемы...";
-
-        //        var matrixFileName = processor.SaveColorMatrix(colorMatrix, PatternNameEntry.Text);
-
-        //        byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
-
-        //        using (var stream = new MemoryStream(imageBytes))
-        //        {
-        //            var pattern = new EmbroideryPattern
-        //            {
-        //                Name = PatternNameEntry.Text,
-        //                Width = width,
-        //                Height = height,
-        //                ColorCount = colors.Count,
-        //                CellSize = 30,
-        //                PatternDataFile = matrixFileName
-        //            };
-
-        //            var (success, message, patternId) = await _databaseService.SavePattern(pattern, stream, _currentUser.Id);
-
-        //            if (success)
-        //            {
-        //                await _databaseService.SavePatternColors(patternId, colors);
-        //                await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
-
-        //                await DisplayAlert("Успех",
-        //                    $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
-        //                    $"Размер: {width} x {height} крестиков\n" +
-        //                    $"Количество цветов: {colors.Count}",
-        //                    "OK");
-
-        //                await Navigation.PopAsync();
-        //            }
-        //            else
-        //            {
-        //                MessageLabel.Text = message;
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        MessageLabel.Text = $"Ошибка: {ex.Message}";
-        //    }
-        //    finally
-        //    {
-        //        SaveButton.IsEnabled = true;
-        //        SaveButton.Text = "💾 Сохранить схему";
-        //    }
-        //}
+       
     }
 }

@@ -2,79 +2,130 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.CreatePatternPage"
-             Title="Создание схемы">
+             Title="Создание схемы"
+             NavigationPage.HasNavigationBar="False">
 
-    <ScrollView>
-        <VerticalStackLayout Spacing="20" Padding="20">
+    <Grid RowDefinitions="Auto,*">
 
-            <Label Text="Название схемы" FontSize="16" FontAttributes="Bold"/>
-            <Entry x:Name="PatternNameEntry" 
-                   Placeholder="Введите название схемы"
-                   MaxLength="50"
-                   />
+        <!-- Верхняя панель -->
+        <Grid Grid.Row="0" 
+              HeightRequest="60" 
+              Padding="10,0"
+              BackgroundColor="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-            <Label Text="Размер схемы" FontSize="16" FontAttributes="Bold"/>
+            <!-- Стрелочка слева -->
+            <Button Grid.Column="0"
+                    Text="&lt;"
+                    BackgroundColor="Transparent"
+                    TextColor="#2196F3"
+                    FontSize="32"
+                    FontAttributes="Bold"
+                    WidthRequest="50"
+                    Clicked="OnBackClicked"/>
 
-            <HorizontalStackLayout Spacing="10">
-                <Entry x:Name="WidthEntry" 
-                       Placeholder="Ширина (по горизонтали)"
-                       Keyboard="Numeric"
-                       WidthRequest="150"
-                       TextChanged="OnWidthChanged"/>
-                <Label Text="x" FontSize="18" VerticalOptions="Center"/>
-                <Entry x:Name="HeightEntry" 
-                       Placeholder="Высота (по вертикали)"
-                       Keyboard="Numeric"
-                       WidthRequest="150"
-                       TextChanged="OnHeightChanged"/>
-            </HorizontalStackLayout>
-
-            <!-- Чекбокс для сохранения пропорций -->
-            <HorizontalStackLayout Spacing="10">
-                <CheckBox x:Name="KeepAspectCheckBox" 
-                          IsChecked="True"
-                          VerticalOptions="Center"/>
-                <Label Text="Сохранять пропорции изображения"
-                       FontSize="14"
-                       TextColor="Gray"
-                       VerticalOptions="Center"/>
-            </HorizontalStackLayout>
-
-            <Label Text="Изображение" FontSize="16" FontAttributes="Bold"/>
-
-            <Frame BorderColor="LightGray" 
-                   CornerRadius="10" 
-                   Padding="10"
-                   HeightRequest="200">
-                <StackLayout>
-                    <Image x:Name="SelectedImage" 
-                           Aspect="AspectFit"
-                           HeightRequest="150"/>
-
-                    <Button Text="📷 Выбрать изображение" 
-                            Clicked="OnSelectImageClicked"
-                            BackgroundColor="#FF9800"/>
-                </StackLayout>
-            </Frame>
-
-            <Label x:Name="ColorInfoLabel" 
-                   Text="" 
-                   FontSize="14"
-                   TextColor="Gray"
-                   IsVisible="False"/>
-
-            <Button x:Name="SaveButton" 
-                    Text="💾 Сохранить схему" 
-                    Clicked="OnSavePatternClicked"
-                    BackgroundColor="#4CAF50"
-                    IsEnabled="False"
-                    HeightRequest="50"/>
-
-            <Label x:Name="MessageLabel" 
-                   Text="" 
-                   TextColor="Red"
+            <!-- Заголовок по центру -->
+            <Label Grid.Column="1"
+                   Text="Создание схемы"
+                  
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
                    HorizontalOptions="Center"/>
 
-        </VerticalStackLayout>
-    </ScrollView>
+            <BoxView Grid.Column="2" WidthRequest="50" BackgroundColor="Transparent"/>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="20" Padding="20">
+
+                <!-- 1. Название схемы -->
+                <Label Text="Название схемы" FontSize="16" FontAttributes="Bold"/>
+                <Entry x:Name="PatternNameEntry" 
+                       Placeholder="Введите название схемы"
+                       MaxLength="50"/>
+
+                <!-- 2. Блок для выбора изображения -->
+                <Label Text="Изображение" FontSize="16" FontAttributes="Bold"/>
+
+                <Grid>
+                    <!-- Пунктирная рамка с изображением -->
+                    <Border BackgroundColor="Transparent"
+                            Stroke="LightGray"
+                            StrokeThickness="1.5"
+                            Padding="10"
+                            HeightRequest="220">
+                        <Grid>
+                            <Image x:Name="SelectedImage" 
+                                   Aspect="AspectFit"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"/>
+                            <Label x:Name="SelectImageLabel"
+                                   Text="Выберите изображение"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   TextColor="Gray"
+                                   FontSize="16"
+                                   IsVisible="True"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Прозрачная кнопка поверх всего блока -->
+                    <Button x:Name="SelectImageButton"
+                            BackgroundColor="Transparent"
+                            Clicked="OnSelectImageClicked"
+                            HeightRequest="220"/>
+                </Grid>
+
+                <!-- 3. Чекбокс для сохранения пропорций -->
+                <HorizontalStackLayout Spacing="10">
+                    <CheckBox x:Name="KeepAspectCheckBox" 
+                              IsChecked="True"
+                              VerticalOptions="Center"/>
+                    <Label Text="Сохранять пропорции изображения"
+                           FontSize="14"
+                           TextColor="Gray"
+                           VerticalOptions="Center"/>
+                </HorizontalStackLayout>
+
+                <!-- 4. Размер схемы -->
+                <Label Text="Размер схемы (количество крестиков)" FontSize="16" FontAttributes="Bold"/>
+
+                <HorizontalStackLayout Spacing="10">
+                    <Entry x:Name="WidthEntry" 
+                           Placeholder="Ширина"
+                           Keyboard="Numeric"
+                           WidthRequest="150"
+                           TextChanged="OnWidthChanged"/>
+                    <Label Text="x" FontSize="18" VerticalOptions="Center"/>
+                    <Entry x:Name="HeightEntry" 
+                           Placeholder="Высота"
+                           Keyboard="Numeric"
+                           WidthRequest="150"
+                           TextChanged="OnHeightChanged"/>
+                </HorizontalStackLayout>
+
+                <!-- 5. Кнопка сохранения -->
+                <Button x:Name="SaveButton" 
+                        Text="Сохранить схему" 
+                        Clicked="OnSavePatternClicked"
+                        BackgroundColor="#4CAF50"
+                        TextColor="White"
+                        IsEnabled="False"
+                        HeightRequest="50"
+                        CornerRadius="8"/>
+
+                <Label x:Name="MessageLabel" 
+                       Text="" 
+                       TextColor="Red"
+                       HorizontalOptions="Center"/>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+    </Grid>
 </ContentPage>
