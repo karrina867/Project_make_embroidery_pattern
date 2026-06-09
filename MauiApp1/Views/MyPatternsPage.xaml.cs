@@ -274,11 +274,11 @@ namespace MauiApp1.Views
                     "Выберите тип схемы",
                     "Отмена",
                     null,
-                    "🎨 Цветная",
-                    "⬜ Контурная");
+                    "Цветная",
+                    "Контурная");
 
                 if (choice == "Отмена" || choice == null) return;
-                bool isOutline = choice == "⬜ Контурная";
+                bool isOutline = choice == "Контурная";
 
                 // Генерируем страницы (автоматически: одна или несколько)
                 List<string> pages = null;

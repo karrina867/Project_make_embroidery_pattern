@@ -488,32 +488,40 @@ namespace MauiApp1.Views
                 }
             }
 
-            // Рисуем сетку только для видимой области
-            for (int x = startX; x <= endX; x++)
+            // --- СЕТКА: рисуем только при достаточном приближении ---
+            if (_cellSize >= 10)  // ← Условие для тонких линий
             {
-                float xPos = x * _cellSize;
-                canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _gridPaint);
-            }
-            for (int y = startY; y <= endY; y++)
-            {
-                float yPos = y * _cellSize;
-                canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _gridPaint);
+                // Тонкие линии между всеми клетками
+                for (int x = startX; x <= endX; x++)
+                {
+                    float xPos = x * _cellSize;
+                    canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _gridPaint);
+                }
+                for (int y = startY; y <= endY; y++)
+                {
+                    float yPos = y * _cellSize;
+                    canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _gridPaint);
+                }
             }
 
-            // Жирные белые линии каждые 10 клеток (только видимые)
-            int thick10StartX = (startX / 10) * 10;
-            int thick10StartY = (startY / 10) * 10;
-            for (int x = thick10StartX; x <= endX; x += 10)
+            // --- ЖИРНЫЕ ЛИНИИ: рисуем только при более крупном приближении ---
+            if (_cellSize >= 15)  // ← Условие для жирных линий
             {
-                if (x == 0) continue;
-                float xPos = x * _cellSize;
-                canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _thickPaint);
-            }
-            for (int y = thick10StartY; y <= endY; y += 10)
-            {
-                if (y == 0) continue;
-                float yPos = y * _cellSize;
-                canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _thickPaint);
+                int thick10StartX = (startX / 10) * 10;
+                int thick10StartY = (startY / 10) * 10;
+
+                for (int x = thick10StartX; x <= endX; x += 10)
+                {
+                    if (x == 0) continue;
+                    float xPos = x * _cellSize;
+                    canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _thickPaint);
+                }
+                for (int y = thick10StartY; y <= endY; y += 10)
+                {
+                    if (y == 0) continue;
+                    float yPos = y * _cellSize;
+                    canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _thickPaint);
+                }
             }
         }
 
@@ -703,6 +711,7 @@ namespace MauiApp1.Views
         //{
         //    await Navigation.PopToRootAsync();
         //}
+        //OnCanvasPaintSurface
 
         private async void OnBackClicked(object sender, EventArgs e)
         {
