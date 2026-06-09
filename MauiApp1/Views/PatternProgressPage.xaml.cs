@@ -40,6 +40,17 @@ namespace MauiApp1.Views
         private bool _isLoaded = false;
         private int _totalStitches;
 
+        // Кэш символов и контрастных цветов для O(1) поиска
+        private Dictionary<uint, string> _symbolCache;
+        private Dictionary<uint, SKColor> _contrastCache;
+
+        // Переиспользуемые SKPaint объекты
+        private readonly SKPaint _fillPaint = new SKPaint { IsAntialias = false };
+        private readonly SKPaint _textPaint = new SKPaint { TextAlign = SKTextAlign.Center, IsAntialias = true };
+        private readonly SKPaint _crossPaint = new SKPaint { Color = new SKColor(80, 220, 80), IsStroke = true, IsAntialias = true };
+        private readonly SKPaint _gridPaint = new SKPaint { Color = new SKColor(180, 180, 180), StrokeWidth = 0.5f, IsStroke = true, IsAntialias = false };
+        private readonly SKPaint _thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 3f, IsStroke = true, IsAntialias = false };
+
         public PatternProgressPage(EmbroideryPattern pattern, User user)
         {
             InitializeComponent();
@@ -140,35 +151,65 @@ namespace MauiApp1.Views
                         var processor = new ImageProcessor();
                         var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
 
-                        var colorMap = new Dictionary<int, SKColor>();
+                        var colorArray = new SKColor[_colors.Count];
                         for (int i = 0; i < _colors.Count; i++)
                         {
-                            colorMap[i] = new SKColor(
+                            colorArray[i] = new SKColor(
                                 (byte)_colors[i].Red,
                                 (byte)_colors[i].Green,
                                 (byte)_colors[i].Blue);
                         }
 
-                        _patternBitmap = new SKBitmap(width, height);
+                        // Используем Pixels[] напрямую — в 10-20x быстрее чем SetPixel
+                        var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                        var pixels = new SKColor[width * height];
 
-                        for (int x = 0; x < width; x++)
+                        for (int y = 0; y < height; y++)
                         {
-                            for (int y = 0; y < height; y++)
+                            for (int x = 0; x < width; x++)
                             {
                                 int colorIndex = colorMatrix[x, y];
-                                if (colorMap.ContainsKey(colorIndex))
-                                {
-                                    _patternBitmap.SetPixel(x, y, colorMap[colorIndex]);
-                                }
+                                pixels[y * width + x] = colorIndex < colorArray.Length
+                                    ? colorArray[colorIndex]
+                                    : SKColors.Magenta;
                             }
                         }
+
+                        bitmap.Pixels = pixels;
+                        _patternBitmap = bitmap;
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Ошибка: {ex.Message}");
                     }
                 }
+
+                BuildCaches();
             });
+        }
+
+        // Строим словари для O(1) поиска символов и контрастных цветов
+        private void BuildCaches()
+        {
+            _symbolCache = new Dictionary<uint, string>();
+            _contrastCache = new Dictionary<uint, SKColor>();
+
+            if (_colors == null) return;
+
+            foreach (var color in _colors)
+            {
+                var skColor = new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue);
+                uint key = (uint)skColor;
+
+                if (!_symbolCache.ContainsKey(key))
+                    _symbolCache[key] = color.Symbol ?? "";
+
+                if (!_contrastCache.ContainsKey(key))
+                {
+                    double luminance = 0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue;
+                    _contrastCache[key] = luminance > 128 ? SKColors.Black : SKColors.White;
+                }
+            }
         }
 
         private void UpdateProgressDisplay()
@@ -235,12 +276,6 @@ namespace MauiApp1.Views
             return luminance > 128 ? Colors.Black : Colors.White;
         }
 
-        private SKColor GetContrastSKColor(SKColor color)
-        {
-            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
-            return luminance > 128 ? SKColors.Black : SKColors.White;
-        }
-
         private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
@@ -248,10 +283,9 @@ namespace MauiApp1.Views
 
             if (_patternBitmap == null || !_isLoaded)
             {
-                using (var paint = new SKPaint { Color = SKColors.White, TextSize = 20, TextAlign = SKTextAlign.Center })
-                {
-                    canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
-                }
+                _fillPaint.Color = SKColors.White;
+                _fillPaint.IsStroke = false;
+                canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, _fillPaint);
                 return;
             }
 
@@ -266,10 +300,20 @@ namespace MauiApp1.Views
 
             canvas.Translate(_offsetX, _offsetY);
 
-            // Рисуем клетки
-            for (int y = 0; y < _pattern.Height; y++)
+            // Viewport culling: рисуем только видимые клетки
+            int startX = Math.Max(0, (int)(-_offsetX / _cellSize));
+            int startY = Math.Max(0, (int)(-_offsetY / _cellSize));
+            int endX = Math.Min(_pattern.Width, (int)((-_offsetX + _canvasWidth) / _cellSize) + 1);
+            int endY = Math.Min(_pattern.Height, (int)((-_offsetY + _canvasHeight) / _cellSize) + 1);
+
+            bool drawSymbols = _cellSize >= 18 && _symbolCache != null;
+            float textSize = _cellSize * 0.4f;
+            float crossMargin = _cellSize * 0.15f;
+            float crossStrokeWidth = Math.Max(1.5f, _cellSize * 0.12f);
+
+            for (int y = startY; y < endY; y++)
             {
-                for (int x = 0; x < _pattern.Width; x++)
+                for (int x = startX; x < endX; x++)
                 {
                     float left = x * _cellSize;
                     float top = y * _cellSize;
@@ -279,95 +323,74 @@ namespace MauiApp1.Views
 
                     if (_completedStitches.Contains((x, y)))
                     {
-                        // Выполненная клетка: затемняем оригинальный цвет
-                        using (var paint = new SKPaint { Color = new SKColor(
+                        // Затемнённый цвет для выполненной клетки
+                        _fillPaint.Color = new SKColor(
                             (byte)(pixelColor.Red * 0.4f),
                             (byte)(pixelColor.Green * 0.4f),
-                            (byte)(pixelColor.Blue * 0.4f)) })
-                        {
-                            canvas.DrawRect(rect, paint);
-                        }
+                            (byte)(pixelColor.Blue * 0.4f));
+                        _fillPaint.IsStroke = false;
+                        canvas.DrawRect(rect, _fillPaint);
 
-                        // Рисуем крестик поверх
+                        // Зелёный крестик
                         if (_cellSize >= 8)
                         {
-                            using (var crossPaint = new SKPaint
-                            {
-                                Color = new SKColor(80, 220, 80),
-                                StrokeWidth = Math.Max(1.5f, _cellSize * 0.12f),
-                                IsStroke = true,
-                                IsAntialias = true
-                            })
-                            {
-                                float margin = _cellSize * 0.15f;
-                                canvas.DrawLine(left + margin, top + margin, left + _cellSize - margin, top + _cellSize - margin, crossPaint);
-                                canvas.DrawLine(left + _cellSize - margin, top + margin, left + margin, top + _cellSize - margin, crossPaint);
-                            }
+                            _crossPaint.StrokeWidth = crossStrokeWidth;
+                            canvas.DrawLine(left + crossMargin, top + crossMargin,
+                                left + _cellSize - crossMargin, top + _cellSize - crossMargin, _crossPaint);
+                            canvas.DrawLine(left + _cellSize - crossMargin, top + crossMargin,
+                                left + crossMargin, top + _cellSize - crossMargin, _crossPaint);
                         }
                     }
                     else
                     {
-                        using (var paint = new SKPaint { Color = pixelColor })
-                        {
-                            canvas.DrawRect(rect, paint);
-                        }
+                        _fillPaint.Color = pixelColor;
+                        _fillPaint.IsStroke = false;
+                        canvas.DrawRect(rect, _fillPaint);
 
-                        // Рисуем символ
-                        if (_cellSize >= 18)
+                        if (drawSymbols)
                         {
-                            var embroideryColor = _colors.FirstOrDefault(c =>
-                                c.Red == pixelColor.Red &&
-                                c.Green == pixelColor.Green &&
-                                c.Blue == pixelColor.Blue);
-
-                            if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+                            uint key = (uint)pixelColor;
+                            if (_symbolCache.TryGetValue(key, out string symbol) && !string.IsNullOrEmpty(symbol))
                             {
-                                using (var textPaint = new SKPaint
-                                {
-                                    Color = GetContrastSKColor(pixelColor),
-                                    TextSize = _cellSize * 0.4f,
-                                    TextAlign = SKTextAlign.Center,
-                                    IsAntialias = true
-                                })
-                                {
-                                    float centerX = left + _cellSize / 2;
-                                    float centerY = top + _cellSize / 2 + textPaint.TextSize * 0.35f;
-                                    canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
-                                }
+                                _textPaint.Color = _contrastCache.TryGetValue(key, out var contrast)
+                                    ? contrast : SKColors.Black;
+                                _textPaint.TextSize = textSize;
+
+                                float centerX = left + _cellSize / 2;
+                                float centerY = top + _cellSize / 2 + textSize * 0.35f;
+                                canvas.DrawText(symbol, centerX, centerY, _textPaint);
                             }
                         }
                     }
                 }
             }
 
-            // Светлые линии между клетками
-            using (var lightPaint = new SKPaint { Color = new SKColor(180, 180, 180), StrokeWidth = 0.5f, IsStroke = true })
+            // Сетка только для видимой области
+            for (int x = startX; x <= endX; x++)
             {
-                for (int x = 0; x <= _pattern.Width; x++)
-                {
-                    float xPos = x * _cellSize;
-                    canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, lightPaint);
-                }
-                for (int y = 0; y <= _pattern.Height; y++)
-                {
-                    float yPos = y * _cellSize;
-                    canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, lightPaint);
-                }
+                float xPos = x * _cellSize;
+                canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _gridPaint);
+            }
+            for (int y = startY; y <= endY; y++)
+            {
+                float yPos = y * _cellSize;
+                canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _gridPaint);
             }
 
-            // Жирные белые линии каждые 10 клеток
-            using (var thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 3f, IsStroke = true })
+            // Жирные белые линии каждые 10 клеток (только видимые)
+            int thick10StartX = (startX / 10) * 10;
+            int thick10StartY = (startY / 10) * 10;
+            for (int x = thick10StartX; x <= endX; x += 10)
             {
-                for (int x = 10; x < _pattern.Width; x += 10)
-                {
-                    float xPos = x * _cellSize;
-                    canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, thickPaint);
-                }
-                for (int y = 10; y < _pattern.Height; y += 10)
-                {
-                    float yPos = y * _cellSize;
-                    canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, thickPaint);
-                }
+                if (x == 0) continue;
+                float xPos = x * _cellSize;
+                canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _thickPaint);
+            }
+            for (int y = thick10StartY; y <= endY; y += 10)
+            {
+                if (y == 0) continue;
+                float yPos = y * _cellSize;
+                canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _thickPaint);
             }
         }
 
@@ -575,6 +598,11 @@ namespace MauiApp1.Views
         {
             base.OnDisappearing();
             PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
+            _fillPaint.Dispose();
+            _textPaint.Dispose();
+            _crossPaint.Dispose();
+            _gridPaint.Dispose();
+            _thickPaint.Dispose();
         }
 
 #if WINDOWS

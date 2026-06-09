@@ -34,6 +34,17 @@ namespace MauiApp1.Views
         private int _canvasWidth = 0, _canvasHeight = 0;
         private bool _isLoaded = false;
 
+        // Кэш символов: цвет пикселя → символ (для быстрого поиска без FirstOrDefault)
+        private Dictionary<uint, string> _symbolCache;
+        // Кэш контрастного цвета: цвет пикселя → контрастный цвет
+        private Dictionary<uint, SKColor> _contrastCache;
+
+        // Переиспользуемые SKPaint объекты (не создавать новые каждый кадр)
+        private readonly SKPaint _fillPaint = new SKPaint { IsAntialias = false };
+        private readonly SKPaint _textPaint = new SKPaint { TextAlign = SKTextAlign.Center, IsAntialias = true };
+        private readonly SKPaint _gridPaint = new SKPaint { Color = new SKColor(180, 180, 180), StrokeWidth = 0.5f, IsStroke = true, IsAntialias = false };
+        private readonly SKPaint _thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 3f, IsStroke = true, IsAntialias = false };
+
         public PatternViewerPage(EmbroideryPattern pattern, User user)
         {
             InitializeComponent();
@@ -176,28 +187,33 @@ namespace MauiApp1.Views
                         var processor = new ImageProcessor();
                         var (colorMatrix, width, height) = processor.LoadColorMatrix(_pattern.PatternDataFile);
 
-                        var colorMap = new Dictionary<int, SKColor>();
+                        // Массив SKColor для быстрого доступа по индексу
+                        var colorArray = new SKColor[_colors.Count];
                         for (int i = 0; i < _colors.Count; i++)
                         {
-                            colorMap[i] = new SKColor(
+                            colorArray[i] = new SKColor(
                                 (byte)_colors[i].Red,
                                 (byte)_colors[i].Green,
                                 (byte)_colors[i].Blue);
                         }
 
-                        _patternBitmap = new SKBitmap(width, height);
+                        // Используем Pixels[] напрямую — в 10-20x быстрее чем SetPixel
+                        var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                        var pixels = new SKColor[width * height];
 
-                        for (int x = 0; x < width; x++)
+                        for (int y = 0; y < height; y++)
                         {
-                            for (int y = 0; y < height; y++)
+                            for (int x = 0; x < width; x++)
                             {
                                 int colorIndex = colorMatrix[x, y];
-                                if (colorMap.ContainsKey(colorIndex))
-                                {
-                                    _patternBitmap.SetPixel(x, y, colorMap[colorIndex]);
-                                }
+                                pixels[y * width + x] = colorIndex < colorArray.Length
+                                    ? colorArray[colorIndex]
+                                    : SKColors.Magenta;
                             }
                         }
+
+                        bitmap.Pixels = pixels;
+                        _patternBitmap = bitmap;
                     }
                     catch (Exception ex)
                     {
@@ -209,19 +225,47 @@ namespace MauiApp1.Views
                 {
                     CreateBitmapFromColorsOnly();
                 }
+
+                // Строим кэши символов и контрастных цветов
+                BuildCaches();
             });
         }
 
         private void CreateBitmapFromColorsOnly()
         {
-            _patternBitmap = new SKBitmap(_pattern.Width, _pattern.Height);
-            for (int x = 0; x < _pattern.Width; x++)
+            var bitmap = new SKBitmap(_pattern.Width, _pattern.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var pixels = new SKColor[_pattern.Width * _pattern.Height];
+            for (int y = 0; y < _pattern.Height; y++)
             {
-                for (int y = 0; y < _pattern.Height; y++)
+                for (int x = 0; x < _pattern.Width; x++)
                 {
                     int colorIndex = (x + y) % _colors.Count;
                     var color = _colors[colorIndex];
-                    _patternBitmap.SetPixel(x, y, new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue));
+                    pixels[y * _pattern.Width + x] = new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue);
+                }
+            }
+            bitmap.Pixels = pixels;
+            _patternBitmap = bitmap;
+        }
+
+        // Строим словари для O(1) поиска символов и контрастных цветов
+        private void BuildCaches()
+        {
+            _symbolCache = new Dictionary<uint, string>();
+            _contrastCache = new Dictionary<uint, SKColor>();
+
+            foreach (var color in _colors)
+            {
+                var skColor = new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue);
+                uint key = (uint)skColor;
+
+                if (!_symbolCache.ContainsKey(key))
+                    _symbolCache[key] = color.Symbol ?? "";
+
+                if (!_contrastCache.ContainsKey(key))
+                {
+                    double luminance = 0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue;
+                    _contrastCache[key] = luminance > 128 ? SKColors.Black : SKColors.White;
                 }
             }
         }
@@ -280,12 +324,6 @@ namespace MauiApp1.Views
         {
             double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
             return luminance > 128 ? Colors.Black : Colors.White;
-        }
-
-        private SKColor GetContrastSKColor(SKColor color)
-        {
-            double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
-            return luminance > 128 ? SKColors.Black : SKColors.White;
         }
 
         //FitTo
@@ -383,14 +421,15 @@ namespace MauiApp1.Views
         private void OnCanvasPaintSurface(object sender, SKPaintSurfaceEventArgs e)
         {
             var canvas = e.Surface.Canvas;
-            canvas.Clear(new SKColor(26, 26, 26)); // Тёмный фон
+            canvas.Clear(new SKColor(26, 26, 26));
 
             if (_patternBitmap == null || !_isLoaded)
             {
-                using (var paint = new SKPaint { Color = SKColors.White, TextSize = 20, TextAlign = SKTextAlign.Center })
-                {
-                    canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, paint);
-                }
+                _fillPaint.Color = SKColors.White;
+                _fillPaint.TextSize = 20;
+                _fillPaint.TextAlign = SKTextAlign.Center;
+                _fillPaint.IsStroke = false;
+                canvas.DrawText("Загрузка...", e.Info.Width / 2, e.Info.Height / 2, _fillPaint);
                 return;
             }
 
@@ -398,21 +437,26 @@ namespace MauiApp1.Views
             {
                 _canvasWidth = e.Info.Width;
                 _canvasHeight = e.Info.Height;
-
-                // Сбрасываем флаг ДО вызова, чтобы избежать зацикливания
                 _isFirstLayout = false;
-
-                // Вызываем принудительный расчет масштаба
                 FitToScreen();
-                return; // Прерываем текущий кадр, FitToScreen сам вызовет InvalidateSurface() уже с новыми координатами!
+                return;
             }
 
             canvas.Translate(_offsetX, _offsetY);
 
-            // Рисуем клетки
-            for (int y = 0; y < _pattern.Height; y++)
+            // Viewport culling: вычисляем какие клетки видны на экране
+            int startX = Math.Max(0, (int)(-_offsetX / _cellSize));
+            int startY = Math.Max(0, (int)(-_offsetY / _cellSize));
+            int endX = Math.Min(_pattern.Width, (int)((-_offsetX + _canvasWidth) / _cellSize) + 1);
+            int endY = Math.Min(_pattern.Height, (int)((-_offsetY + _canvasHeight) / _cellSize) + 1);
+
+            bool drawSymbols = _cellSize >= 18 && _symbolCache != null;
+            float textSize = _cellSize * 0.4f;
+
+            // Рисуем только видимые клетки
+            for (int y = startY; y < endY; y++)
             {
-                for (int x = 0; x < _pattern.Width; x++)
+                for (int x = startX; x < endX; x++)
                 {
                     float left = x * _cellSize;
                     float top = y * _cellSize;
@@ -420,66 +464,53 @@ namespace MauiApp1.Views
 
                     var pixelColor = _patternBitmap.GetPixel(x, y);
 
-                    using (var paint = new SKPaint { Color = pixelColor })
-                    {
-                        canvas.DrawRect(rect, paint);
-                    }
+                    _fillPaint.Color = pixelColor;
+                    _fillPaint.IsStroke = false;
+                    canvas.DrawRect(rect, _fillPaint);
 
-                    // Рисуем символ
-                    if (_cellSize >= 18)
+                    if (drawSymbols)
                     {
-                        var embroideryColor = _colors.FirstOrDefault(c =>
-                            c.Red == pixelColor.Red &&
-                            c.Green == pixelColor.Green &&
-                            c.Blue == pixelColor.Blue);
-
-                        if (embroideryColor != null && !string.IsNullOrEmpty(embroideryColor.Symbol))
+                        uint key = (uint)pixelColor;
+                        if (_symbolCache.TryGetValue(key, out string symbol) && !string.IsNullOrEmpty(symbol))
                         {
-                            using (var textPaint = new SKPaint
-                            {
-                                Color = GetContrastSKColor(pixelColor),
-                                TextSize = _cellSize * 0.4f,
-                                TextAlign = SKTextAlign.Center,
-                                IsAntialias = true
-                            })
-                            {
-                                float centerX = left + _cellSize / 2;
-                                float centerY = top + _cellSize / 2 + textPaint.TextSize * 0.35f;
-                                canvas.DrawText(embroideryColor.Symbol, centerX, centerY, textPaint);
-                            }
+                            _textPaint.Color = _contrastCache.TryGetValue(key, out var contrast)
+                                ? contrast : SKColors.Black;
+                            _textPaint.TextSize = textSize;
+
+                            float centerX = left + _cellSize / 2;
+                            float centerY = top + _cellSize / 2 + textSize * 0.35f;
+                            canvas.DrawText(symbol, centerX, centerY, _textPaint);
                         }
                     }
                 }
             }
 
-            // Рисуем светлые линии между всеми клетками (видны на любом фоне)
-            using (var lightPaint = new SKPaint { Color = new SKColor(180, 180, 180), StrokeWidth = 0.5f, IsStroke = true })
+            // Рисуем сетку только для видимой области
+            for (int x = startX; x <= endX; x++)
             {
-                for (int x = 0; x <= _pattern.Width; x++)
-                {
-                    float xPos = x * _cellSize;
-                    canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, lightPaint);
-                }
-                for (int y = 0; y <= _pattern.Height; y++)
-                {
-                    float yPos = y * _cellSize;
-                    canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, lightPaint);
-                }
+                float xPos = x * _cellSize;
+                canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _gridPaint);
+            }
+            for (int y = startY; y <= endY; y++)
+            {
+                float yPos = y * _cellSize;
+                canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _gridPaint);
             }
 
-            // Рисуем жирные белые линии каждые 10 клеток
-            using (var thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 3f, IsStroke = true })
+            // Жирные белые линии каждые 10 клеток (только видимые)
+            int thick10StartX = (startX / 10) * 10;
+            int thick10StartY = (startY / 10) * 10;
+            for (int x = thick10StartX; x <= endX; x += 10)
             {
-                for (int x = 10; x < _pattern.Width; x += 10)
-                {
-                    float xPos = x * _cellSize;
-                    canvas.DrawLine(xPos, 0, xPos, _pattern.Height * _cellSize, thickPaint);
-                }
-                for (int y = 10; y < _pattern.Height; y += 10)
-                {
-                    float yPos = y * _cellSize;
-                    canvas.DrawLine(0, yPos, _pattern.Width * _cellSize, yPos, thickPaint);
-                }
+                if (x == 0) continue;
+                float xPos = x * _cellSize;
+                canvas.DrawLine(xPos, startY * _cellSize, xPos, endY * _cellSize, _thickPaint);
+            }
+            for (int y = thick10StartY; y <= endY; y += 10)
+            {
+                if (y == 0) continue;
+                float yPos = y * _cellSize;
+                canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _thickPaint);
             }
         }
 
@@ -703,6 +734,10 @@ namespace MauiApp1.Views
         {
             base.OnDisappearing();
             PatternCanvas.SizeChanged -= OnCanvasSizeChanged;
+            _fillPaint.Dispose();
+            _textPaint.Dispose();
+            _gridPaint.Dispose();
+            _thickPaint.Dispose();
         }
 
 
