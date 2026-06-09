@@ -22,7 +22,7 @@
             <Button Grid.Column="0"
                     Text="&lt;"
                     BackgroundColor="Transparent"
-                    TextColor="White"
+                    TextColor="#2196F3"
                     FontSize="32"
                     FontAttributes="Bold"
                     WidthRequest="50"
