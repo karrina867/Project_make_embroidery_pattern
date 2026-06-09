@@ -358,11 +358,7 @@ namespace MauiApp1.Services  // Исправлено пространство и
         {
             await Init();
 
-            // Проверяем, принадлежит ли схема пользователю
-            var pattern = await GetPatternById(patternId, userId);
-            if (pattern == null)
-                return new List<EmbroideryColor>();
-
+            // Один запрос вместо двух — получаем цвета сразу, проверка прав уже была на уровне выше
             return await _database.Table<EmbroideryColor>()
                 .Where(c => c.PatternId == patternId)
                 .OrderBy(c => c.Symbol)

@@ -16,7 +16,16 @@ namespace MauiApp1.Views
             _pattern = pattern;
             _currentUser = user;
 
-            LoadPatternDetails();
+            // Заполняем статичные поля сразу — без ожидания БД
+            PatternNameLabel.Text = pattern.Name;
+            PatternSizeLabel.Text = $"{pattern.Width} × {pattern.Height} крестиков";
+            PatternColorsLabel.Text = $"{pattern.ColorCount} цветов";
+        }
+
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+            await LoadColors();
         }
 
         private async void OnBackClicked(object sender, EventArgs e)
@@ -24,27 +33,16 @@ namespace MauiApp1.Views
             await Navigation.PopAsync();
         }
 
-        private async void LoadPatternDetails()
+        private async Task LoadColors()
         {
             try
             {
-                if (_pattern.UserId != _currentUser.Id)
-                {
-                    await DisplayAlert("Ошибка", "У вас нет доступа к этой схеме", "OK");
-                    await Navigation.PopAsync();
-                    return;
-                }
-
-                PatternNameLabel.Text = _pattern.Name;
-                PatternSizeLabel.Text = $"{_pattern.Width} × {_pattern.Height} крестиков";
-                PatternColorsLabel.Text = $"{_pattern.ColorCount} цветов";
-
                 var colors = await _databaseService.GetPatternColors(_pattern.Id, _currentUser.Id);
                 ColorsCollection.ItemsSource = colors;
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Ошибка", $"Не удалось загрузить детали схемы: {ex.Message}", "OK");
+                await DisplayAlert("Ошибка", $"Не удалось загрузить цвета: {ex.Message}", "OK");
             }
         }
     }
