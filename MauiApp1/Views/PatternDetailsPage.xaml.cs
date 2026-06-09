@@ -18,7 +18,7 @@ namespace MauiApp1.Views
 
             // Заполняем статичные поля сразу — без ожидания БД
             PatternNameLabel.Text = pattern.Name;
-            PatternSizeLabel.Text = $"{pattern.Width} × {pattern.Height} крестиков";
+            PatternSizeLabel.Text = $"{pattern.Width * pattern.Height} крестиков";
             PatternColorsLabel.Text = $"{pattern.ColorCount} цветов";
         }
 
