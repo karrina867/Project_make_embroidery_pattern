@@ -145,7 +145,10 @@ namespace MauiApp1.Views
 
         //    PatternsCollection.SelectedItem = null;
         //}
-
+        private async void OnBackClicked(object sender, EventArgs e)
+        {
+            await Navigation.PopToRootAsync();
+        }
         private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
         {
             if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)

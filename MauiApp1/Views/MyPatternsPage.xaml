@@ -3,64 +3,110 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.MyPatternsPage"
              Title="Мои схемы"
-             NavigationPage.HasNavigationBar="False">
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#1a1a1a">
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+    <Grid RowDefinitions="Auto,*,Auto">
 
-        <SearchBar x:Name="SearchBar" 
-                   Placeholder="Поиск схем..."
-                   MaxLength="50"
-                   TextChanged="OnSearchTextChanged"/>
+        <!-- Верхняя панель -->
+        <Grid Grid.Row="0" 
+              HeightRequest="60" 
+              Padding="10,0"
+              BackgroundColor="Transparent">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
 
-        <CollectionView x:Name="PatternsCollection"
-                        Grid.Row="1"
-                        SelectionMode="Single"
-                        SelectionChanged="OnPatternSelected">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="10" 
+            <Button Grid.Column="0"
+                    Text="&lt;"
+                    BackgroundColor="Transparent"
+                    TextColor="#2196F3"
+                    FontSize="32"
+                    FontAttributes="Bold"
+                    WidthRequest="50"
+                    Clicked="OnBackClicked"/>
+
+            <Label Grid.Column="1"
+                   Text="Мои схемы"
+                  
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   VerticalOptions="Center"
+                   HorizontalOptions="Center"/>
+
+            <BoxView Grid.Column="2" WidthRequest="50" BackgroundColor="#1a1a1a"/>
+        </Grid>
+
+        <!-- Основное содержимое -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <SearchBar Grid.Row="0"
+                       x:Name="SearchBar" 
+                       Placeholder="Поиск схем по названию"
+                       MaxLength="50"
+                       TextChanged="OnSearchTextChanged"
+                       />
+
+            <CollectionView Grid.Row="1"
+                x:Name="PatternsCollection"
+                SelectionMode="Single"
+                SelectionChanged="OnPatternSelected">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <ContentView Padding="10,5">
+                            <Border Stroke="White"
+                        StrokeThickness="1"
+                     
+                        StrokeShape="RoundRectangle 8">
+                                <Grid Padding="10" 
                           ColumnDefinitions="100,*"
                           RowDefinitions="Auto,Auto">
 
-                        <Image Grid.RowSpan="2"
+                                    <Image Grid.Column="0"
+                               Grid.RowSpan="2"
                                Source="{Binding ImagePath}"
                                HeightRequest="80"
                                WidthRequest="80"
-                               Aspect="AspectFit"/>
+                               Aspect="AspectFit"
+                               VerticalOptions="Center"/>
 
-                        <Label Grid.Column="1"
+                                    <Label Grid.Column="1"
+                               Grid.Row="0"
                                Text="{Binding Name}"
                                FontSize="16"
-                               FontAttributes="Bold"/>
-
-                        <Label Grid.Column="1"
+                               FontAttributes="Bold"
+                               TextColor="White"/>
+                                    <Label Grid.Column="1"
                                Grid.Row="1"
                                Text="{Binding Info}"
                                FontSize="12"
-                               TextColor="Gray"/>
+                               TextColor="Gray"
+                               VerticalOptions="Start"
+                               Margin="0,4,0,0"/>
 
-                        <BoxView Grid.ColumnSpan="2"
-                                 Grid.Row="2"
-                                 HeightRequest="1"
-                                 BackgroundColor="LightGray"
-                                 Margin="0,5"/>
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                                </Grid>
+                            </Border>
+                        </ContentView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
 
-        <Label x:Name="EmptyLabel" 
-               Grid.Row="1"
-               Text="Нет сохраненных схем. &#10; Создайте схему!"
-               HorizontalOptions="Center"
-               VerticalOptions="Center"
-               HorizontalTextAlignment="Center"
-               FontSize="16"
-               TextColor="Gray"
-               IsVisible="False"/>
+            <Label x:Name="EmptyLabel" 
+                   Grid.Row="1"
+                   Text="Нет сохраненных схем.&#10;Создайте первую схему!"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   HorizontalTextAlignment="Center"
+                   FontSize="16"
+                   TextColor="Gray"
+                   IsVisible="False"/>
+        </Grid>
+
     </Grid>
 </ContentPage>
