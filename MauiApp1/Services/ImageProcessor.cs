@@ -176,6 +176,7 @@ namespace MauiApp1.Services
 
             return fileName;
         }
+        //ExportToA4Auto
 
         // Загрузка матрицы из файла
         public (int[,] matrix, int width, int height) LoadColorMatrix(string fileName)
@@ -496,7 +497,7 @@ namespace MauiApp1.Services
         //    return closest.Key;
         //}
 
-      
+
 
         /// <summary>
         /// Сохраняет схему вышивки в PNG файл (ОПТИМИЗИРОВАННАЯ ВЕРСИЯ)
@@ -1849,6 +1850,358 @@ namespace MauiApp1.Services
             // Для PNG используем чёрный или белый текст
             double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
             return luminance > 128 ? SKColors.Black : SKColors.White;
+        }
+
+        /// <summary>
+        /// Автоматически экспортирует схему в формат A4 PNG.
+        /// Сам решает: одна страница или несколько.
+        /// Легенда встраивается рядом со схемой (если помещается) или на отдельную страницу.
+        /// cellSize = 40px, формат A4 (794x1123 px @ 96dpi).
+        /// </summary>
+        public List<string> ExportToA4Auto(
+            EmbroideryPattern pattern,
+            List<EmbroideryColor> colors,
+            int[,] colorMatrix,
+            bool isOutline)
+        {
+            const int cellSize = 20;//РАЗМЕР КЛЕТКИ
+            const int a4W = 794;
+            const int a4H = 1123;
+            const int margin = 30;
+            const int legendW = 200;   // ширина колонки легенды
+            const int legendRowH = 36; // высота одной строки легенды
+
+            int availW = a4W - margin * 2;
+            int availH = a4H - margin * 2;
+
+            // Сколько крестиков помещается на одну страницу без легенды
+            int maxCols = availW / cellSize;
+            int maxRows = availH / cellSize;
+
+            // Сколько крестиков помещается с легендой сбоку
+            int availWwithLegend = availW - legendW - 10;
+            int maxColsWithLegend = availWwithLegend / cellSize;
+
+            // Высота легенды: заголовок ~60px + строки
+            int legendHeaderH = 60;
+            int legendTotalH = legendHeaderH + colors.Count * legendRowH;
+
+            // Проверяем: схема + легенда влезает на одну страницу?
+            bool fitsOnOnePage =
+                pattern.Width <= maxColsWithLegend &&
+                pattern.Height <= maxRows &&
+                legendTotalH <= availH;
+
+            // Если схема маленькая и помещается целиком с легендой — одна страница
+            if (fitsOnOnePage)
+            {
+                var page = RenderA4Page(
+                    pattern, colors, colorMatrix, isOutline,
+                    cellSize, a4W, a4H, margin,
+                    srcX: 0, srcY: 0,
+                    srcW: pattern.Width, srcH: pattern.Height,
+                    pageNum: 1, totalPages: 1,
+                    includeLegend: true, legendW: legendW, legendRowH: legendRowH);
+
+                var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
+                var path = Path.Combine(FileSystem.CacheDirectory,
+                    $"{safeName}_{DateTime.Now:yyyyMMdd_HHmmss}_1.png");
+                SaveBitmap(page, path);
+                page.Dispose();
+                return new List<string> { path };
+            }
+
+            // Иначе — разбиваем на страницы без легенды, легенда — отдельной страницей
+            var result = new List<string>();
+            var safeName2 = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
+
+            int pagesX = (int)Math.Ceiling((double)pattern.Width / maxCols);
+            int pagesY = (int)Math.Ceiling((double)pattern.Height / maxRows);
+            int totalPages = pagesX * pagesY + 1; // +1 для легенды
+            int pageNum = 0;
+
+            for (int py = 0; py < pagesY; py++)
+            {
+                for (int px = 0; px < pagesX; px++)
+                {
+                    pageNum++;
+                    int sx = px * maxCols;
+                    int sy = py * maxRows;
+                    int sw = Math.Min(maxCols, pattern.Width - sx);
+                    int sh = Math.Min(maxRows, pattern.Height - sy);
+
+                    var bmp = RenderA4Page(
+                        pattern, colors, colorMatrix, isOutline,
+                        cellSize, a4W, a4H, margin,
+                        sx, sy, sw, sh,
+                        pageNum, totalPages,
+                        includeLegend: false, legendW: legendW, legendRowH: legendRowH);
+
+                    var path = Path.Combine(FileSystem.CacheDirectory,
+                        $"{safeName2}_{DateTime.Now:yyyyMMdd_HHmmss}_{pageNum}.png");
+                    SaveBitmap(bmp, path);
+                    bmp.Dispose();
+                    result.Add(path);
+                }
+            }
+
+            // Страница легенды
+            pageNum++;
+            var legendPage = RenderLegendPage(pattern, colors, a4W, a4H, margin, cellSize, pageNum, totalPages);
+            var legendPath = Path.Combine(FileSystem.CacheDirectory,
+                $"{safeName2}_{DateTime.Now:yyyyMMdd_HHmmss}_{pageNum}_легенда.png");
+            SaveBitmap(legendPage, legendPath);
+            legendPage.Dispose();
+            result.Add(legendPath);
+
+            return result;
+        }
+
+        private SKBitmap RenderA4Page(
+            EmbroideryPattern pattern,
+            List<EmbroideryColor> colors,
+            int[,] colorMatrix,
+            bool isOutline,
+            int cellSize, int a4W, int a4H, int margin,
+            int srcX, int srcY, int srcW, int srcH,
+            int pageNum, int totalPages,
+            bool includeLegend, int legendW, int legendRowH)
+        {
+            var skColors = new SKColor[colors.Count];
+            for (int i = 0; i < colors.Count; i++)
+                skColors[i] = new SKColor((byte)colors[i].Red, (byte)colors[i].Green, (byte)colors[i].Blue);
+
+            var bitmap = new SKBitmap(a4W, a4H);
+            using var canvas = new SKCanvas(bitmap);
+            canvas.Clear(SKColors.White);
+
+            // Рамка
+            using (var borderPaint = new SKPaint { Color = new SKColor(200, 200, 200), StrokeWidth = 1, IsStroke = true })
+                canvas.DrawRect(SKRect.Create(5, 5, a4W - 10, a4H - 10), borderPaint);
+
+            int schemaW = srcW * cellSize;
+            int schemaH = srcH * cellSize;
+
+            // Отступ для схемы: центрируем по вертикали, по горизонтали — слева с учётом легенды
+            int totalContentW = schemaW + (includeLegend ? legendW + 10 : 0);
+            int offsetX = margin + Math.Max(0, ((a4W - margin * 2 - (includeLegend ? legendW + 10 : 0)) - schemaW) / 2);
+            int offsetY = margin + Math.Max(0, (a4H - margin * 2 - 40 - schemaH) / 2);
+
+            canvas.Save();
+            canvas.Translate(offsetX, offsetY);
+
+            // --- Рисуем клетки ---
+            for (int y = 0; y < srcH; y++)
+            {
+                for (int x = 0; x < srcW; x++)
+                {
+                    int ci = colorMatrix[srcX + x, srcY + y];
+                    float left = x * cellSize;
+                    float top = y * cellSize;
+                    var rect = SKRect.Create(left, top, cellSize, cellSize);
+
+                    if (!isOutline)
+                    {
+                        using var fillPaint = new SKPaint { Color = skColors[ci], IsAntialias = false };
+                        canvas.DrawRect(rect, fillPaint);
+                    }
+                    else
+                    {
+                        using var fillPaint = new SKPaint { Color = SKColors.White, IsAntialias = false };
+                        canvas.DrawRect(rect, fillPaint);
+                    }
+
+                    // Символ
+                    var symbol = colors[ci].Symbol;
+                    if (!string.IsNullOrEmpty(symbol))
+                    {
+                        var textColor = isOutline ? SKColors.Black : GetContrastColorForPng(skColors[ci]);
+                        using var textPaint = new SKPaint
+                        {
+                            Color = textColor,
+                            TextSize = cellSize * 0.45f,
+                            TextAlign = SKTextAlign.Center,
+                            IsAntialias = true,
+                            Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold,
+                                SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                        };
+                        canvas.DrawText(symbol, left + cellSize / 2f,
+                            top + cellSize / 2f + textPaint.TextSize * 0.35f, textPaint);
+                    }
+                }
+            }
+            //40
+            // --- Сетка ---
+            using (var gridPaint = new SKPaint
+            {
+                Color = isOutline ? SKColors.Black : new SKColor(0, 0, 0, 80),
+                StrokeWidth = 0.5f,
+                IsStroke = true,
+                IsAntialias = false
+            })
+            {
+                for (int x = 0; x <= srcW; x++)
+                    canvas.DrawLine(x * cellSize, 0, x * cellSize, schemaH, gridPaint);
+                for (int y = 0; y <= srcH; y++)
+                    canvas.DrawLine(0, y * cellSize, schemaW, y * cellSize, gridPaint);
+            }
+
+            // Жирные линии каждые 10 клеток
+            using (var thickPaint = new SKPaint
+            {
+                Color = isOutline ? SKColors.Black : new SKColor(0, 0, 0, 160),
+                StrokeWidth = 2f,
+                IsStroke = true,
+                IsAntialias = false
+            })
+            {
+                for (int x = 10; x < srcW; x += 10)
+                    canvas.DrawLine(x * cellSize, 0, x * cellSize, schemaH, thickPaint);
+                for (int y = 10; y < srcH; y += 10)
+                    canvas.DrawLine(0, y * cellSize, schemaW, y * cellSize, thickPaint);
+            }
+
+            canvas.Restore();
+
+            // --- Легенда сбоку ---
+            if (includeLegend)
+            {
+                int lx = offsetX + schemaW + 10;
+                int ly = margin;
+
+                using (var titlePaint = new SKPaint
+                {
+                    Color = SKColors.Black,
+                    TextSize = 14,
+                    IsAntialias = true,
+                    Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold,
+                        SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                })
+                    canvas.DrawText("Нитки:", lx, ly + 14, titlePaint);
+
+                ly += 30;
+                foreach (var color in colors)
+                {
+                    var skc = new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue);
+
+                    using (var cp = new SKPaint { Color = skc })
+                        canvas.DrawRect(SKRect.Create(lx, ly, 22, 22), cp);
+                    using (var bp = new SKPaint { Color = SKColors.Black, StrokeWidth = 1, IsStroke = true })
+                        canvas.DrawRect(SKRect.Create(lx, ly, 22, 22), bp);
+                    using (var sp = new SKPaint
+                    {
+                        Color = GetContrastColorForPng(skc),
+                        TextSize = 11,
+                        TextAlign = SKTextAlign.Center,
+                        IsAntialias = true
+                    })
+                        canvas.DrawText(color.Symbol ?? "●", lx + 11, ly + 16, sp);
+
+                    using (var tp = new SKPaint { Color = SKColors.Black, TextSize = 10, IsAntialias = true })
+                    {
+                        canvas.DrawText($"DMC {color.DMCNumber ?? "—"}", lx + 28, ly + 9, tp);
+                        canvas.DrawText($"{color.PixelCount} кр.", lx + 28, ly + 20, tp);
+                    }
+
+                    ly += legendRowH;
+                }
+            }
+
+            // --- Колонтитул ---
+            using (var footerPaint = new SKPaint { Color = SKColors.Gray, TextSize = 10, IsAntialias = true })
+            {
+                string info = totalPages > 1
+                    ? $"{pattern.Name}  |  {pattern.Width}×{pattern.Height}  |  стр. {pageNum} из {totalPages}"
+                    : $"{pattern.Name}  |  {pattern.Width}×{pattern.Height} крестиков";
+                canvas.DrawText(info, margin, a4H - 12, footerPaint);
+                canvas.DrawText($"клетка = {cellSize}px", a4W - 120, a4H - 12, footerPaint);
+            }
+
+            return bitmap;
+        }
+
+        private SKBitmap RenderLegendPage(
+            EmbroideryPattern pattern,
+            List<EmbroideryColor> colors,
+            int a4W, int a4H, int margin,
+            int cellSize, int pageNum, int totalPages)
+        {
+            var bitmap = new SKBitmap(a4W, a4H);
+            using var canvas = new SKCanvas(bitmap);
+            canvas.Clear(SKColors.White);
+
+            using (var borderPaint = new SKPaint { Color = new SKColor(200, 200, 200), StrokeWidth = 1, IsStroke = true })
+                canvas.DrawRect(SKRect.Create(5, 5, a4W - 10, a4H - 10), borderPaint);
+
+            int x = margin, y = margin;
+
+            using (var titlePaint = new SKPaint
+            {
+                Color = SKColors.Black,
+                TextSize = 20,
+                IsAntialias = true,
+                Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold,
+                    SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+            })
+                canvas.DrawText($"Список ниток: {pattern.Name}", x, y + 20, titlePaint);
+
+            y += 50;
+            using (var subPaint = new SKPaint { Color = SKColors.Gray, TextSize = 13, IsAntialias = true })
+            {
+                canvas.DrawText($"Размер: {pattern.Width} × {pattern.Height} крестиков  |  Цветов: {colors.Count}", x, y, subPaint);
+            }
+            y += 30;
+
+            // Таблица — 2 колонки
+            int rowH = 38;
+            int colW = (a4W - margin * 2) / 2;
+            int col = 0;
+            int baseX = margin;
+
+            foreach (var color in colors)
+            {
+                int cx = baseX + col * colW;
+                var skc = new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue);
+
+                using (var cp = new SKPaint { Color = skc })
+                    canvas.DrawRect(SKRect.Create(cx, y, 26, 26), cp);
+                using (var bp = new SKPaint { Color = SKColors.Black, StrokeWidth = 1, IsStroke = true })
+                    canvas.DrawRect(SKRect.Create(cx, y, 26, 26), bp);
+                using (var sp = new SKPaint
+                {
+                    Color = GetContrastColorForPng(skc),
+                    TextSize = 12,
+                    TextAlign = SKTextAlign.Center,
+                    IsAntialias = true,
+                    Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold,
+                        SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                })
+                    canvas.DrawText(color.Symbol ?? "●", cx + 13, y + 18, sp);
+
+                using (var tp = new SKPaint { Color = SKColors.Black, TextSize = 11, IsAntialias = true })
+                {
+                    canvas.DrawText($"DMC {color.DMCNumber ?? "—"}  Gamma {color.GammaNumber ?? "—"}", cx + 34, y + 10, tp);
+                    canvas.DrawText($"{color.ColorHex}  |  {color.PixelCount} крестиков", cx + 34, y + 22, tp);
+                }
+
+                col++;
+                if (col >= 2) { col = 0; y += rowH; }
+
+                if (y > a4H - margin - 40) break; // не выходим за лист
+            }
+
+            using (var footerPaint = new SKPaint { Color = SKColors.Gray, TextSize = 10, IsAntialias = true })
+                canvas.DrawText($"{pattern.Name}  |  стр. {pageNum} из {totalPages}  (легенда)", margin, a4H - 12, footerPaint);
+
+            return bitmap;
+        }
+
+        private void SaveBitmap(SKBitmap bitmap, string filePath)
+        {
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+            using var stream = File.Create(filePath);
+            data.SaveTo(stream);
         }
     }
 }
