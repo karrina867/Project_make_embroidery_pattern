@@ -2,139 +2,122 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.PatternDetailsPage"
-             Title="Детали схемы"
-             NavigationPage.HasNavigationBar="False">
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="#1a1a1a">
 
-    <Grid RowDefinitions="Auto, Auto, *, Auto">
-        <!-- Строки: 
-             0 - панель навигации
-             1 - информация о схеме
-             2 - таблица цветов
-             3 - кнопки действий
-        -->
+    <Grid RowDefinitions="Auto, Auto, *">
 
-        <!-- Верхняя панель с кнопкой "Назад" - строка 0 -->
-        <Grid Grid.Row="0" 
-              BackgroundColor="#2196F3" 
-              HeightRequest="60" 
-              Padding="10,0">
+        <!-- Верхняя панель -->
+        <Grid Grid.Row="0"
+              HeightRequest="60"
+              Padding="10,0"
+              BackgroundColor="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <Button Grid.Column="0"
-                    Text="← Назад"
+                    Text="&lt;"
                     BackgroundColor="Transparent"
-                    TextColor="White"
-                    FontSize="16"
+                    TextColor="#2196F3"
+                    FontSize="32"
+                    FontAttributes="Bold"
+                    WidthRequest="50"
                     Clicked="OnBackClicked"/>
 
             <Label Grid.Column="1"
-                   Text="Детали схемы"
+                   Text="Нитки"
                    TextColor="White"
                    FontSize="18"
                    FontAttributes="Bold"
                    VerticalOptions="Center"
                    HorizontalOptions="Center"/>
+
+            <BoxView Grid.Column="2" WidthRequest="50" BackgroundColor="Transparent"/>
         </Grid>
 
-        <!-- Информация о схеме - строка 1 -->
-        <VerticalStackLayout Grid.Row="1" 
-                             Padding="10" 
-                             Spacing="5"
-                             BackgroundColor="#F5F5F5">
-            <Label x:Name="PatternNameLabel" 
-                   FontSize="20" 
-                   FontAttributes="Bold"/>
-            <Label x:Name="PatternSizeLabel" 
-                   TextColor="Gray"
-                   FontSize="14"/>
-            <Label x:Name="PatternColorsLabel" 
-                   TextColor="Gray"
-                   FontSize="14"/>
+        <!-- Информация о схеме -->
+        <VerticalStackLayout Grid.Row="1"
+                             Padding="15,8"
+                             Spacing="3"
+                             BackgroundColor="Transparent">
+            <Label x:Name="PatternNameLabel"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="White"
+                   HorizontalOptions="Center"/>
+            <Label x:Name="PatternSizeLabel"
+                   TextColor="#AAAAAA"
+                   FontSize="13"
+                   HorizontalOptions="Center"/>
+            <Label x:Name="PatternColorsLabel"
+                   TextColor="#AAAAAA"
+                   FontSize="13"
+                   HorizontalOptions="Center"/>
         </VerticalStackLayout>
 
-        <!-- Таблица цветов - строка 2 (занимает всё свободное место) -->
-        <CollectionView x:Name="ColorsCollection" 
-                        Grid.Row="2" 
-                        SelectionMode="None">
+        <!-- Список цветов -->
+        <CollectionView x:Name="ColorsCollection"
+                        Grid.Row="2"
+                        SelectionMode="None"
+                        BackgroundColor="Transparent">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <Grid Padding="10" 
-                          ColumnDefinitions="50,100,*,*"
-                          RowDefinitions="Auto">
+                    <Grid Padding="12,8"
+                          ColumnDefinitions="50,60,*,Auto">
 
-                        <Frame BackgroundColor="{Binding ColorHex}" 
-                               HeightRequest="40" 
-                               WidthRequest="40"
-                               CornerRadius="5"
-                               BorderColor="Gray"
+                        <!-- Цветной квадрат -->
+                        <Frame BackgroundColor="{Binding ColorHex}"
+                               HeightRequest="42"
+                               WidthRequest="42"
+                               CornerRadius="6"
+                               BorderColor="#444444"
+                               HasShadow="False"
                                VerticalOptions="Center"/>
 
-                        <Label Grid.Column="1" 
-                               Text="{Binding Symbol}" 
-                               FontSize="24"
+                        <!-- Символ -->
+                        <Label Grid.Column="1"
+                               Text="{Binding Symbol}"
+                               FontSize="26"
                                FontAttributes="Bold"
-                               VerticalOptions="Center"/>
+                               TextColor="White"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Center"/>
 
-                        <VerticalStackLayout Grid.Column="2" Spacing="2"
-                                            VerticalOptions="Center">
-                            <Label Text="{Binding ColorHex}" 
+                        <!-- Коды ниток -->
+                        <VerticalStackLayout Grid.Column="2"
+                                             Spacing="2"
+                                             VerticalOptions="Center">
+                            <Label Text="{Binding DMCNumber, StringFormat='DMC: {0}'}"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="White"/>
+                            <Label Text="{Binding GammaNumber, StringFormat='Gamma: {0}'}"
                                    FontSize="12"
-                                   FontAttributes="Bold"/>
-                            <Label Text="{Binding DMCNumber, StringFormat='DMC: {0}'}" 
-                                   FontSize="11" 
-                                   TextColor="Gray"/>
+                                   TextColor="#AAAAAA"/>
+                            <Label Text="{Binding ColorHex}"
+                                   FontSize="11"
+                                   TextColor="#666666"/>
                         </VerticalStackLayout>
 
-                        <Label Grid.Column="3" 
-                               Text="{Binding PixelCount, StringFormat='{0} крестиков'}"
+                        <!-- Количество крестиков -->
+                        <Label Grid.Column="3"
+                               Text="{Binding PixelCount, StringFormat='{0} кр.'}"
                                FontSize="12"
-                               VerticalOptions="Center"/>
+                               TextColor="#AAAAAA"
+                               VerticalOptions="Center"
+                               Margin="0,0,4,0"/>
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
+
+            <!-- Разделитель между элементами -->
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="0"/>
+            </CollectionView.ItemsLayout>
         </CollectionView>
-
-        <!-- Кнопки действий - строка 3 -->
-        <HorizontalStackLayout Grid.Row="3" 
-                               Padding="10" 
-                               Spacing="10"
-                               BackgroundColor="#F5F5F5"
-                               HeightRequest="60">
-
-            <Button Text="🖼️ PNG" 
-                    Clicked="OnSavePngClicked"
-                    BackgroundColor="#4CAF50"
-                    TextColor="White"
-                    HorizontalOptions="FillAndExpand"
-                    VerticalOptions="Center"
-                    CornerRadius="5"/>
-
-            <Button Text="✂️ Вышивать" 
-            Clicked="OnStartEmbroideryClicked"
-            BackgroundColor="#9C27B0"
-            TextColor="White"
-            HorizontalOptions="FillAndExpand"
-            CornerRadius="5"/>
-
-            <Button Text="📋 TXT" 
-                    Clicked="OnExportClicked"
-                    BackgroundColor="#FF9800"
-                    TextColor="White"
-                    HorizontalOptions="FillAndExpand"
-                    VerticalOptions="Center"
-                    CornerRadius="5"/>
-
-            <Button Text="🗑️ Удалить" 
-                    Clicked="OnDeleteClicked"
-                    BackgroundColor="#FF4444"
-                    TextColor="White"
-                    HorizontalOptions="FillAndExpand"
-                    VerticalOptions="Center"
-                    CornerRadius="5"/>
-        </HorizontalStackLayout>
 
     </Grid>
 </ContentPage>
