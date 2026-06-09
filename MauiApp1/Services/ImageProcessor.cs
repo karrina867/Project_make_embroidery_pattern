@@ -1958,14 +1958,14 @@ namespace MauiApp1.Services
         }
 
         private SKBitmap RenderA4Page(
-            EmbroideryPattern pattern,
-            List<EmbroideryColor> colors,
-            int[,] colorMatrix,
-            bool isOutline,
-            int cellSize, int a4W, int a4H, int margin,
-            int srcX, int srcY, int srcW, int srcH,
-            int pageNum, int totalPages,
-            bool includeLegend, int legendW, int legendRowH)
+      EmbroideryPattern pattern,
+      List<EmbroideryColor> colors,
+      int[,] colorMatrix,
+      bool isOutline,
+      int cellSize, int a4W, int a4H, int margin,
+      int srcX, int srcY, int srcW, int srcH,
+      int pageNum, int totalPages,
+      bool includeLegend, int legendW, int legendRowH)
         {
             var skColors = new SKColor[colors.Count];
             for (int i = 0; i < colors.Count; i++)
@@ -1973,7 +1973,7 @@ namespace MauiApp1.Services
 
             var bitmap = new SKBitmap(a4W, a4H);
             using var canvas = new SKCanvas(bitmap);
-            canvas.Clear(SKColors.White);
+            canvas.Clear(SKColors.White);  // Белый фон для всех режимов
 
             // Рамка
             using (var borderPaint = new SKPaint { Color = new SKColor(200, 200, 200), StrokeWidth = 1, IsStroke = true })
@@ -1982,7 +1982,7 @@ namespace MauiApp1.Services
             int schemaW = srcW * cellSize;
             int schemaH = srcH * cellSize;
 
-            // Отступ для схемы: центрируем по вертикали, по горизонтали — слева с учётом легенды
+            // Отступ для схемы
             int totalContentW = schemaW + (includeLegend ? legendW + 10 : 0);
             int offsetX = margin + Math.Max(0, ((a4W - margin * 2 - (includeLegend ? legendW + 10 : 0)) - schemaW) / 2);
             int offsetY = margin + Math.Max(0, (a4H - margin * 2 - 40 - schemaH) / 2);
@@ -2000,21 +2000,19 @@ namespace MauiApp1.Services
                     float top = y * cellSize;
                     var rect = SKRect.Create(left, top, cellSize, cellSize);
 
+                    // ТОЛЬКО для цветного режима закрашиваем клетки
                     if (!isOutline)
                     {
                         using var fillPaint = new SKPaint { Color = skColors[ci], IsAntialias = false };
                         canvas.DrawRect(rect, fillPaint);
                     }
-                    else
-                    {
-                        using var fillPaint = new SKPaint { Color = SKColors.White, IsAntialias = false };
-                        canvas.DrawRect(rect, fillPaint);
-                    }
+                    // В контурном режиме НЕ закрашиваем - оставляем белый фон
 
-                    // Символ
+                    // Символ (всегда рисуем)
                     var symbol = colors[ci].Symbol;
                     if (!string.IsNullOrEmpty(symbol))
                     {
+                        // Для контурного режима символы всегда чёрные (максимальный контраст)
                         var textColor = isOutline ? SKColors.Black : GetContrastColorForPng(skColors[ci]);
                         using var textPaint = new SKPaint
                         {
@@ -2030,12 +2028,12 @@ namespace MauiApp1.Services
                     }
                 }
             }
-            //40
-            // --- Сетка ---
+
+            // --- Сетка (чёткие чёрные линии) ---
             using (var gridPaint = new SKPaint
             {
-                Color = isOutline ? SKColors.Black : new SKColor(0, 0, 0, 80),
-                StrokeWidth = 0.5f,
+                Color = SKColors.Black,
+                StrokeWidth = 1f,
                 IsStroke = true,
                 IsAntialias = false
             })
@@ -2046,11 +2044,11 @@ namespace MauiApp1.Services
                     canvas.DrawLine(0, y * cellSize, schemaW, y * cellSize, gridPaint);
             }
 
-            // Жирные линии каждые 10 клеток
+            // --- Жирные линии каждые 10 клеток ---
             using (var thickPaint = new SKPaint
             {
-                Color = isOutline ? SKColors.Black : new SKColor(0, 0, 0, 160),
-                StrokeWidth = 2f,
+                Color = SKColors.Black,
+                StrokeWidth = 2.5f,
                 IsStroke = true,
                 IsAntialias = false
             })
@@ -2063,7 +2061,7 @@ namespace MauiApp1.Services
 
             canvas.Restore();
 
-            // --- Легенда сбоку ---
+            // --- Легенда сбоку (если нужна) ---
             if (includeLegend)
             {
                 int lx = offsetX + schemaW + 10;
@@ -2119,7 +2117,6 @@ namespace MauiApp1.Services
 
             return bitmap;
         }
-
         private SKBitmap RenderLegendPage(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -2195,6 +2192,8 @@ namespace MauiApp1.Services
 
             return bitmap;
         }
+
+        //RenderA4Page
 
         private void SaveBitmap(SKBitmap bitmap, string filePath)
         {
