@@ -330,7 +330,7 @@ namespace MauiApp1.Views
                         // Вместо Navigation.PopAsync() открываем просмотр
                         if (pattern != null)
                         {
-                            await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser));
+                            await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser, openedFromCreate: true));
                         }
                         else
                         {

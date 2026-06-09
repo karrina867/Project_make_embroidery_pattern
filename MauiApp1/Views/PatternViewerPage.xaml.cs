@@ -45,12 +45,15 @@ namespace MauiApp1.Views
         private readonly SKPaint _gridPaint = new SKPaint { Color = new SKColor(180, 180, 180), StrokeWidth = 0.5f, IsStroke = true, IsAntialias = false };
         private readonly SKPaint _thickPaint = new SKPaint { Color = SKColors.White, StrokeWidth = 3f, IsStroke = true, IsAntialias = false };
 
-        public PatternViewerPage(EmbroideryPattern pattern, User user)
+        private readonly bool _openedFromCreate;
+
+        public PatternViewerPage(EmbroideryPattern pattern, User user, bool openedFromCreate = false)
         {
             InitializeComponent();
             _databaseService = new DatabaseService();
             _pattern = pattern;
             _currentUser = user;
+            _openedFromCreate = openedFromCreate;
 
             // Подписываемся на событие изменения размера
             PatternCanvas.SizeChanged += OnCanvasSizeChanged;
@@ -703,28 +706,33 @@ namespace MauiApp1.Views
 
         private async void OnBackClicked(object sender, EventArgs e)
         {
-            try
+            if (_openedFromCreate)
             {
-                // 1. Создаем страницу со списком схем и передаем туда текущего пользователя
-                // ВНИМАНИЕ: Замени 'PatternsListPage' на точное название твоего класса страницы со списком схем!
-                var patternsListPage = new MyPatternsPage(_currentUser);
+                // Ищем MyPatternsPage в стеке навигации
+                var navStack = Navigation.NavigationStack.ToList();
+                var myPatternsPage = navStack.OfType<MyPatternsPage>().FirstOrDefault();
 
-                // 2. Делаем её новой корневой страницей приложения, чтобы очистить историю переходов
-                if (Application.Current?.MainPage is NavigationPage navPage)
+                if (myPatternsPage != null)
                 {
-                    // Переключаем главную страницу на список схем внутри контейнера навигации
-                    Application.Current.MainPage = new NavigationPage(patternsListPage);
+                    // MyPatternsPage есть в стеке — удаляем все страницы между ней и текущей
+                    for (int i = navStack.Count - 2; i >= 0; i--)
+                    {
+                        if (navStack[i] is MyPatternsPage) break;
+                        Navigation.RemovePage(navStack[i]);
+                    }
+                    await Navigation.PopAsync();
                 }
                 else
                 {
-                    // Если NavigationPage не используется глобально
-                    Application.Current.MainPage = patternsListPage;
+                    // MyPatternsPage нет в стеке (пришли из MainMenu → Create) —
+                    // заменяем текущую страницу на MyPatternsPage через InsertPageBefore + Pop
+                    var patternsPage = new MyPatternsPage(_currentUser);
+                    Navigation.InsertPageBefore(patternsPage, this);
+                    await Navigation.PopAsync();
                 }
             }
-            catch (Exception ex)
+            else
             {
-                System.Diagnostics.Debug.WriteLine($"Ошибка навигации: {ex.Message}");
-                // Запасной вариант, если что-то пошло не так — просто выходим назад
                 await Navigation.PopAsync();
             }
         }
