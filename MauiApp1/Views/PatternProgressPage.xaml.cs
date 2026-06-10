@@ -140,6 +140,34 @@ namespace MauiApp1.Views
             PatternCanvas?.InvalidateSurface();
         }
 
+        private async void OnClearProgressClicked(object sender, EventArgs e)
+        {
+            // Подтверждение очистки
+            var confirm =  await DisplayAlert("Очистка прогресса", "Вы уверены, что хотите очистить весь прогресс вышивки?", "Да, очистить", "Отмена");
+
+            if (!confirm) return;
+
+            try
+            {
+                // Очищаем локальный HashSet
+                _completedStitches.Clear();
+
+                // Сохраняем пустой прогресс в базу данных
+                await _databaseService.SaveProgress(_pattern.Id, _currentUser.Id, _completedStitches);
+                await _databaseService.UpdatePercentComplete(_pattern.Id, _currentUser.Id, _totalStitches, 0);
+
+                // Обновляем отображение
+                UpdateProgressDisplay();
+                PatternCanvas.InvalidateSurface();
+
+                await DisplayAlert("Успех", "Прогресс вышивки полностью очищен", "OK");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Ошибка", $"Не удалось очистить прогресс: {ex.Message}", "OK");
+            }
+        }
+
         private async Task LoadPatternBitmap()
         {
             await Task.Run(() =>
