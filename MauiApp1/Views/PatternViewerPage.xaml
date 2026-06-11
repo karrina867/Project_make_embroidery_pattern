@@ -8,7 +8,6 @@
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <!-- Верхняя панель -->
         <Grid Grid.Row="0" 
               HeightRequest="60" 
               Padding="10,0"
@@ -39,7 +38,6 @@
             <BoxView Grid.Column="2" WidthRequest="50" BackgroundColor="Transparent"/>
         </Grid>
 
-        <!-- Название схемы -->
         <Label Grid.Row="1"
                x:Name="PatternNameLabel"
                Text=""
@@ -49,7 +47,6 @@
                HorizontalOptions="Center"
                Margin="0,10,0,5"/>
 
-        <!-- Область для схемы (тёмный фон) -->
         <skia:SKCanvasView Grid.Row="2"
                            x:Name="PatternCanvas"
                            BackgroundColor="#1a1a1a"
@@ -57,7 +54,6 @@
                            EnableTouchEvents="True"
                            Touch="OnCanvasTouch"/>
 
-        <!-- Нижняя панель -->
         <Grid Grid.Row="3" 
               BackgroundColor="#2a2a2a"
               RowDefinitions="Auto,Auto"
@@ -123,125 +119,3 @@
 
     </Grid>
 </ContentPage>
-    
-    
-    <!--<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:skia="clr-namespace:SkiaSharp.Views.Maui.Controls;assembly=SkiaSharp.Views.Maui.Controls"
-             x:Class="MauiApp1.Views.PatternViewerPage"
-             NavigationPage.HasNavigationBar="False">
-
-    <Grid RowDefinitions="Auto,*,Auto">
-
-        --><!-- Верхняя панель (как в CreatePatternPage) --><!--
-        <Grid Grid.Row="0" 
-              HeightRequest="60" 
-              Padding="10,0"
-              BackgroundColor="Transparent">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            --><!-- Стрелочка слева --><!--
-            <Button Grid.Column="0"
-                    Text="&lt;"
-                    BackgroundColor="Transparent"
-                    TextColor="#2196F3"
-                    FontSize="32"
-                    FontAttributes="Bold"
-                    WidthRequest="50"
-                    Clicked="OnBackClicked"/>
-
-            --><!-- Заголовок по центру --><!--
-            <Label Grid.Column="1"
-                   Text="Просмотр схемы"
-                  
-                   FontSize="18"
-                   FontAttributes="Bold"
-                   VerticalOptions="Center"
-                   HorizontalOptions="Center"/>
-
-            <BoxView Grid.Column="2" WidthRequest="50" BackgroundColor="Transparent"/>
-        </Grid>
-
-        --><!-- Область для схемы --><!--
-        <skia:SKCanvasView Grid.Row="1"
-                           x:Name="PatternCanvas"
-                           PaintSurface="OnCanvasPaintSurface"
-                           EnableTouchEvents="True"
-                           Touch="OnCanvasTouch"/>
-
-        --><!-- Нижняя панель с выбором ниток --><!--
-        <Grid Grid.Row="2" 
-              BackgroundColor="#F5F5F5"
-              RowDefinitions="Auto,Auto"
-              Padding="10">
-
-            --><!-- Кнопки выбора формата --><!--
-            <HorizontalStackLayout Grid.Row="0" 
-                                   Spacing="10" 
-                                   HorizontalOptions="Center"
-                                   Margin="0,5">
-                <Button x:Name="DmcButton"
-                        Text="DMC"
-                        BackgroundColor="#4CAF50"
-                        TextColor="White"
-                        WidthRequest="100"
-                        HeightRequest="40"
-                        CornerRadius="8"
-                        Clicked="OnDmcClicked"/>
-                <Button x:Name="GammaButton"
-                        Text="Gamma"
-                        BackgroundColor="#9E9E9E"
-                        TextColor="White"
-                        WidthRequest="100"
-                        HeightRequest="40"
-                        CornerRadius="8"
-                        Clicked="OnGammaClicked"/>
-            </HorizontalStackLayout>
-
-            --><!-- Горизонтальный список цветов с кнопками прокрутки --><!--
-            <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto">
-
-                --><!-- Кнопка прокрутки влево --><!--
-                <Button Grid.Column="0"
-                        Text="◀"
-                        BackgroundColor="#2196F3"
-                        TextColor="White"
-                        WidthRequest="40"
-                        HeightRequest="50"
-                        CornerRadius="8"
-                        FontSize="16"
-                        Clicked="OnScrollLeftClicked"/>
-
-                --><!-- Горизонтальный список --><!--
-                <ScrollView x:Name="ColorsScrollView"
-                            Grid.Column="1"
-                            Orientation="Horizontal"
-                            HorizontalScrollBarVisibility="Never"
-                            Margin="5,0">
-                    <HorizontalStackLayout x:Name="ColorsStackLayout"
-                                           Spacing="10"
-                                           Padding="5"/>
-                </ScrollView>
-
-                --><!-- Кнопка прокрутки вправо --><!--
-                <Button Grid.Column="2"
-                        Text="▶"
-                        BackgroundColor="#2196F3"
-                        TextColor="White"
-                        WidthRequest="40"
-                        HeightRequest="50"
-                        CornerRadius="8"
-                        FontSize="16"
-                        Clicked="OnScrollRightClicked"/>
-
-            </Grid>
-
-        </Grid>
-
-    </Grid>
-</ContentPage>-->

@@ -160,7 +160,7 @@ namespace MauiApp1.Views
                 UpdateProgressDisplay();
                 PatternCanvas.InvalidateSurface();
 
-                await DisplayAlert("Успех", "Прогресс вышивки полностью очищен", "OK");
+               // await DisplayAlert("Успех", "Прогресс вышивки полностью очищен", "OK");
             }
             catch (Exception ex)
             {

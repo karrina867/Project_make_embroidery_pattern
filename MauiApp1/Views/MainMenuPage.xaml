@@ -14,12 +14,6 @@
                TextColor="#2196F3"
                />
 
-        <!--Text="Cross"
- FontSize="48"
- FontAttributes="Bold"
- HorizontalOptions="Center"
- TextColor="#2196F3"-->
-
         <Label Text="Создавайте схемы из изображений"
                FontSize="16"
                HorizontalOptions="Center"

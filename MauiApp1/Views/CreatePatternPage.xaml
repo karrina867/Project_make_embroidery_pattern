@@ -7,7 +7,6 @@
 
     <Grid RowDefinitions="Auto,*">
 
-        <!-- Верхняя панель -->
         <Grid Grid.Row="0" 
               HeightRequest="60" 
               Padding="10,0"
@@ -18,7 +17,6 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Стрелочка слева -->
             <Button Grid.Column="0"
                     Text="&lt;"
                     BackgroundColor="Transparent"
@@ -28,7 +26,6 @@
                     WidthRequest="50"
                     Clicked="OnBackClicked"/>
 
-            <!-- Заголовок по центру -->
             <Label Grid.Column="1"
                    Text="Создание схемы"
                   
@@ -43,17 +40,14 @@
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="20" Padding="20">
 
-                <!-- 1. Название схемы -->
                 <Label Text="Название схемы" FontSize="16" FontAttributes="Bold"/>
                 <Entry x:Name="PatternNameEntry" 
                        Placeholder="Введите название схемы"
                        MaxLength="50"/>
 
-                <!-- 2. Блок для выбора изображения -->
                 <Label Text="Изображение" FontSize="16" FontAttributes="Bold"/>
 
                 <Grid>
-                    <!-- Пунктирная рамка с изображением -->
                     <Border BackgroundColor="Transparent"
                             Stroke="LightGray"
                             StrokeThickness="1.5"
@@ -74,14 +68,12 @@
                         </Grid>
                     </Border>
 
-                    <!-- Прозрачная кнопка поверх всего блока -->
                     <Button x:Name="SelectImageButton"
                             BackgroundColor="Transparent"
                             Clicked="OnSelectImageClicked"
                             HeightRequest="220"/>
                 </Grid>
 
-                <!-- 3. Чекбокс для сохранения пропорций -->
                 <HorizontalStackLayout Spacing="10">
                     <CheckBox x:Name="KeepAspectCheckBox" 
                               IsChecked="True"
@@ -92,7 +84,6 @@
                            VerticalOptions="Center"/>
                 </HorizontalStackLayout>
 
-                <!-- 4. Размер схемы -->
                 <Label Text="Размер схемы (количество крестиков)" FontSize="16" FontAttributes="Bold"/>
 
                 <HorizontalStackLayout Spacing="10">
@@ -109,7 +100,6 @@
                            TextChanged="OnHeightChanged"/>
                 </HorizontalStackLayout>
 
-                <!-- 5. Кнопка сохранения -->
                 <Button x:Name="SaveButton" 
                         Text="Сохранить схему" 
                         Clicked="OnSavePatternClicked"

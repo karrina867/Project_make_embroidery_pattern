@@ -16,6 +16,8 @@ namespace MauiApp1
             //dbService.DeleteDatabase();
 
 
+
+
             // Создаём NavigationPage
             var navigationPage = new NavigationPage(new AuthPage());
 
@@ -24,11 +26,6 @@ namespace MauiApp1
 
             MainPage = navigationPage;
 
-
-            //NavigationPage.SetHasNavigationBar(this, false);
-
-
-          // MainPage = new NavigationPage(new AuthPage());  // Views.AuthPage можно сократить до AuthPage, если есть using
         }
     }
 }

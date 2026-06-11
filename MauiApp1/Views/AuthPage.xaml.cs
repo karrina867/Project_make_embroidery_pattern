@@ -21,7 +21,6 @@ namespace MauiApp1.Views
             RegisterModeBtn.BackgroundColor = Color.FromArgb("#9E9E9E");
             MessageLabel.Text = "";
 
-            // Меняем цвет названия на синий (цвет входа)
             AppTitleLabel.TextColor = Color.FromArgb("#2196F3");
         }
 
@@ -32,29 +31,9 @@ namespace MauiApp1.Views
             LoginModeBtn.BackgroundColor = Color.FromArgb("#9E9E9E");
             RegisterModeBtn.BackgroundColor = Color.FromArgb("#4CAF50");
             MessageLabel.Text = "";
-
-            // Меняем цвет названия на зелёный (цвет регистрации)
             AppTitleLabel.TextColor = Color.FromArgb("#4CAF50");
         }
 
-        //private async void OnLoginClicked(object sender, EventArgs e)
-        //{
-        //    var (success, message, user) = await _databaseService.LoginUser(
-        //        LoginOrEmailEntry.Text,
-        //        LoginPasswordEntry.Text
-        //    );
-
-        //    if (success)
-        //    {
-        //        await DisplayAlert("Успех", message, "OK");
-        //        await Navigation.PushAsync(new MainMenuPage(user));
-        //    }
-        //    else
-        //    {
-        //        MessageLabel.Text = message;
-        //        MessageLabel.TextColor = Colors.Red;
-        //    }
-        //}
         private async void OnLoginClicked(object sender, EventArgs e)
         {
             var (success, message, user) = await _databaseService.LoginUser(
@@ -64,7 +43,7 @@ namespace MauiApp1.Views
 
             if (success && user != null)
             {
-                await DisplayAlert("Успех", message, "OK");
+               // await DisplayAlert("Успех", message, "OK");
 
                 var mainMenuPage = new MainMenuPage(user);
                 var navigationPage = new NavigationPage(mainMenuPage);
@@ -91,30 +70,26 @@ namespace MauiApp1.Views
 
             if (success)
             {
-                // Очищаем поля регистрации
+                
                 RegLoginEntry.Text = "";
                 RegEmailEntry.Text = "";
                 RegPasswordEntry.Text = "";
                 RegConfirmPasswordEntry.Text = "";
 
-                // Автоматически входим с зарегистрированными данными
+               
                 var (loginSuccess, loginMessage, user) = await _databaseService.LoginUser(login, password);
 
 
                 if (loginSuccess && user != null)
                 {
-                    await DisplayAlert("Успех", "Регистрация пройдена! Выполняется вход...", "OK");
+                   // await DisplayAlert("Успех", "Регистрация пройдена! Выполняется вход...", "OK");
 
                     var mainMenuPage = new MainMenuPage(user);
                     var navigationPage = new NavigationPage(mainMenuPage);
                     NavigationPage.SetHasNavigationBar(navigationPage, false);
                     Application.Current.MainPage = navigationPage;
                 }
-                //if (loginSuccess && user != null)
-                //{
-                //    await DisplayAlert("Успех", "Регистрация пройдена! Выполняется вход...", "OK");
-                //    await Navigation.PushAsync(new MainMenuPage(user));
-                //}
+               
                 else
                 {
                     // Если автоматический вход не сработал, показываем форму входа

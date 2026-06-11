@@ -21,7 +21,6 @@
                    TextColor="Gray"
                    Margin="0,0,0,30"/>
 
-            <!-- Вместо SegmentedButton используем обычные кнопки -->
             <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
                 <Button x:Name="LoginModeBtn" 
                         Text="Вход" 
@@ -35,7 +34,6 @@
                         WidthRequest="120"/>
             </HorizontalStackLayout>
 
-            <!-- Форма входа -->
             <VerticalStackLayout x:Name="LoginForm" Spacing="15">
                 <Label Text="Логин или Email" FontSize="14"/>
                 <Entry x:Name="LoginOrEmailEntry" Placeholder="Введите логин или email"/>
@@ -46,7 +44,6 @@
                 <Button Text="Войти" Clicked="OnLoginClicked" BackgroundColor="#2196F3"/>
             </VerticalStackLayout>
 
-            <!-- Форма регистрации -->
             <VerticalStackLayout x:Name="RegisterForm" IsVisible="False" Spacing="15">
                 <Label Text="Логин" FontSize="14"/>
                 <Entry x:Name="RegLoginEntry" Placeholder="Введите логин"/>

@@ -146,39 +146,7 @@ namespace MauiApp1.Views
             PatternCanvas?.InvalidateSurface();
         }
 
-        //private void FitToScreen()
-        //{
-        //    if (_patternBitmap == null) return;
-
-        //    // Если размеры всё ещё не определены, пробуем получить через Dispatch
-        //    if (_canvasWidth <= 0 || _canvasHeight <= 0)
-        //    {
-        //        _canvasWidth = (int)PatternCanvas.Width;
-        //        _canvasHeight = (int)PatternCanvas.Height;
-        //    }
-
-        //    if (_canvasWidth <= 0 || _canvasHeight <= 0)
-        //    {
-        //        // Откладываем центрирование на следующий цикл
-        //        Dispatcher.Dispatch(() => FitToScreen());
-        //        return;
-        //    }
-
-        //    float cellSizeByWidth = (float)_canvasWidth / _pattern.Width;
-        //    float cellSizeByHeight = (float)_canvasHeight / _pattern.Height;
-
-        //    float newCellSize = Math.Min(cellSizeByWidth, cellSizeByHeight);
-        //    _cellSize = Math.Clamp(newCellSize, _minCellSize, _maxCellSize);
-
-        //    // Центрируем схему
-        //    _offsetX = (_canvasWidth - _pattern.Width * _cellSize) / 2;
-        //    _offsetY = (_canvasHeight - _pattern.Height * _cellSize) / 2;
-
-        //    System.Diagnostics.Debug.WriteLine($"FitToScreen: canvas={_canvasWidth}x{_canvasHeight}, pattern={_pattern.Width}x{_pattern.Height}, cellSize={_cellSize}, offset=({_offsetX},{_offsetY})");
-
-        //    PatternCanvas?.InvalidateSurface();
-        //}
-
+       
         private async Task LoadPatternBitmap()
         {
             await Task.Run(() =>
@@ -620,31 +588,6 @@ namespace MauiApp1.Views
             return (float)Math.Sqrt(dx * dx + dy * dy);
         }
 
-        //private void ClampOffset()
-        //{
-        //    float totalWidth = _pattern.Width * _cellSize;
-        //    float totalHeight = _pattern.Height * _cellSize;
-        //    float maxOffsetX = Math.Max(0, totalWidth - _canvasWidth);
-        //    float maxOffsetY = Math.Max(0, totalHeight - _canvasHeight);
-
-        //    if (totalWidth <= _canvasWidth)
-        //    {
-        //        _offsetX = (_canvasWidth - totalWidth) / 2;
-        //    }
-        //    else
-        //    {
-        //        _offsetX = Math.Clamp(_offsetX, -maxOffsetX, 0);
-        //    }
-
-        //    if (totalHeight <= _canvasHeight)
-        //    {
-        //        _offsetY = (_canvasHeight - totalHeight) / 2;
-        //    }
-        //    else
-        //    {
-        //        _offsetY = Math.Clamp(_offsetY, -maxOffsetY, 0);
-        //    }
-        //}
 
         private void ClampOffset()
         {
@@ -707,11 +650,7 @@ namespace MauiApp1.Views
             UpdateColorsList();
         }
 
-        //private async void OnBackClicked(object sender, EventArgs e)
-        //{
-        //    await Navigation.PopToRootAsync();
-        //}
-        //OnCanvasPaintSurface
+
 
         private async void OnBackClicked(object sender, EventArgs e)
         {

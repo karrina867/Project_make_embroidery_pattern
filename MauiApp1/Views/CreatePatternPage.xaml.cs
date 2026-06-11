@@ -321,11 +321,11 @@ namespace MauiApp1.Views
                         // Получаем сохранённую схему с ID
                         pattern = await _databaseService.GetPatternById(patternId, _currentUser.Id);
 
-                        await DisplayAlert("Успех",
-                            $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
-                            $"Размер: {width} x {height} крестиков\n" +
-                            $"Количество цветов: {colors.Count}",
-                            "OK");
+                        //await DisplayAlert("Успех",
+                        //    $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
+                        //    $"Размер: {width} x {height} крестиков\n" +
+                        //    $"Количество цветов: {colors.Count}",
+                        //    "OK");
 
                         // Вместо Navigation.PopAsync() открываем просмотр
                         if (pattern != null)
@@ -341,7 +341,7 @@ namespace MauiApp1.Views
                     {
                         MessageLabel.Text = message;
                         SaveButton.IsEnabled = true;
-                        SaveButton.Text = "💾 Сохранить схему";
+                        SaveButton.Text = "Сохранить схему";
                     }
                 }
             }
@@ -349,7 +349,7 @@ namespace MauiApp1.Views
             {
                 MessageLabel.Text = $"Ошибка: {ex.Message}";
                 SaveButton.IsEnabled = true;
-                SaveButton.Text = "💾 Сохранить схему";
+                SaveButton.Text = "Сохранить схему";
             }
         }
 

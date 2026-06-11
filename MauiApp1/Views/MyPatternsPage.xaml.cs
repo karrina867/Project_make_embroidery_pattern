@@ -214,7 +214,7 @@ namespace MauiApp1.Views
                         var deleted = await _databaseService.DeletePattern(pattern.Id, _currentUser.Id);
                         if (deleted)
                         {
-                            await DisplayAlert("Успех", "Схема удалена", "OK");
+                           // await DisplayAlert("Успех", "Схема удалена", "OK");
                             await LoadPatterns();
                         }
                         else
@@ -257,7 +257,7 @@ namespace MauiApp1.Views
 
                 await LoadPatterns();  // ← теперь можно await
 
-                await DisplayAlert("Успех", "Схема переименована", "OK");
+               // await DisplayAlert("Успех", "Схема переименована", "OK");
             }
         }
 
@@ -298,7 +298,7 @@ namespace MauiApp1.Views
                 string msg = pages.Count == 1
                     ? "Схема сохранена в галерею"
                     : $"Схема сохранена в галерею ({pages.Count} стр.)";
-                await DisplayAlert("Готово", msg, "OK");
+                await DisplayAlert("Готово", msg, "Понятно");
             }
             catch (Exception ex)
             {

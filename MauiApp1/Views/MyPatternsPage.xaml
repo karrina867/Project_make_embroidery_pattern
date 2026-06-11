@@ -8,7 +8,6 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <!-- Верхняя панель -->
         <Grid Grid.Row="0" 
               HeightRequest="60" 
               Padding="10,0"
@@ -39,7 +38,6 @@
             <BoxView Grid.Column="2" WidthRequest="50" BackgroundColor="#1a1a1a"/>
         </Grid>
 
-        <!-- Основное содержимое -->
         <Grid Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
