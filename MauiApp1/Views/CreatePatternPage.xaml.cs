@@ -253,6 +253,8 @@ namespace MauiApp1.Views
         {
             await Navigation.PopAsync();
         }
+
+
         private async void OnSavePatternClicked(object sender, EventArgs e)
         {
             // Валидация названия
@@ -341,9 +343,30 @@ namespace MauiApp1.Views
                         //    "OK");
 
                         // Вместо Navigation.PopAsync() открываем просмотр
+
+
+
+
+
+
+
+                        //if (pattern != null)
+                        //{
+                        //    await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser, openedFromCreate: true));
+                        //}
+
                         if (pattern != null)
                         {
+                            // 1. Сначала открываем страницу просмотра схемы
                             await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser, openedFromCreate: true));
+
+                            // 2. А теперь ПОД чистую удаляем страницу создания из стека!
+                            // Находим её в стеке (она лежит прямо перед страницей просмотра)
+                            var createPageInStack = Navigation.NavigationStack.FirstOrDefault(p => p is CreatePatternPage);
+                            if (createPageInStack != null)
+                            {
+                                Navigation.RemovePage(createPageInStack);
+                            }
                         }
                         else
                         {

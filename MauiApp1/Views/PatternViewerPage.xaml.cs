@@ -685,6 +685,22 @@ namespace MauiApp1.Views
             }
         }
 
+        protected override bool OnBackButtonPressed()
+        {
+            if (_openedFromCreate)
+            {
+                // Вызываем уже написанную вами правильную логику переходов
+                OnBackClicked(this, EventArgs.Empty);
+
+                // Возвращаем true, чтобы сказать операционной системе: 
+                // "Мы сами обработали это нажатие, стандартный Pop делать не нужно!"
+                return true;
+            }
+
+            // Если открыли обычным способом из списка, пусть работает стандартный назад
+            return base.OnBackButtonPressed();
+        }
+
 
         protected override void OnDisappearing()
         {
