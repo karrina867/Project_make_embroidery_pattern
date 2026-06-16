@@ -18,6 +18,13 @@ namespace MauiApp1.Views
             InitializeComponent();
             _databaseService = new DatabaseService();
             _currentUser = user;
+
+            this.Loaded += (s, e) =>
+            {
+                PatternNameEntry.Unfocus();
+                WidthEntry.Unfocus();
+                HeightEntry.Unfocus();
+            };
         }
 
 
@@ -76,6 +83,9 @@ namespace MauiApp1.Views
         {
             try
             {
+                PatternNameEntry.Unfocus();
+                WidthEntry.Unfocus();
+                HeightEntry.Unfocus();
                 // Запрашиваем разрешение на доступ к галерее
                 var status = await Permissions.RequestAsync<Permissions.StorageRead>();
                 if (status != PermissionStatus.Granted)
@@ -109,6 +119,9 @@ namespace MauiApp1.Views
                     //        _originalImageHeight = bitmap.Height;
                     //    }
                     //}
+                    PatternNameEntry.Unfocus();
+                    WidthEntry.Unfocus();
+                    HeightEntry.Unfocus();
 
                     var processor = new MauiApp1.Services.ImageProcessor(); // Создаем экземпляр обработчика
                     using (var correctBitmap = processor.FixOrientation(_selectedImagePath))
