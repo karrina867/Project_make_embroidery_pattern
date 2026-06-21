@@ -21,13 +21,13 @@ namespace MauiApp1.Views
             PatternsCollection.ItemsSource = _filteredPatterns;
         }
 
-        protected override async void OnAppearing()  // ← изменили на async
+        protected override async void OnAppearing() 
         {
             base.OnAppearing();
-            await LoadPatterns();  // ← теперь можно await
+            await LoadPatterns();
         }
 
-        private async Task LoadPatterns()  // ← изменили с void на Task
+        private async Task LoadPatterns()
         {
             try
             {
@@ -88,63 +88,6 @@ namespace MauiApp1.Views
             EmptyLabel.IsVisible = _filteredPatterns.Count == 0;
         }
 
-        //private async void OnPatternSelected(object sender, SelectionChangedEventArgs e)
-        //{
-        //    if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
-        //    {
-        //        var action = await DisplayActionSheet(
-        //            $"Схема: {selectedPattern.Name}",
-        //            "Отмена",
-        //            null,
-        //            "👁️ Просмотреть схему",
-        //            "📊 Посмотреть цвета",
-        //            "✏️ Переименовать",
-        //            "🗑️ Удалить схему");
-
-        //        var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
-
-        //        if (pattern == null)
-        //        {
-        //            await DisplayAlert("Ошибка", "Схема не найдена", "OK");
-        //            return;
-        //        }
-
-        //        if (action == "👁️ Просмотреть схему")
-        //        {
-        //            await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser));
-        //        }
-        //        else if (action == "📊 Посмотреть цвета")
-        //        {
-        //            await Navigation.PushAsync(new PatternDetailsPage(pattern, _currentUser));
-        //        }
-        //        else if (action == "✏️ Переименовать")
-        //        {
-        //            await RenamePattern(pattern, selectedPattern);
-        //        }
-        //        else if (action == "🗑️ Удалить схему")
-        //        {
-        //            var confirm = await DisplayAlert("Удаление",
-        //                $"Вы уверены, что хотите удалить схему '{selectedPattern.Name}'?",
-        //                "Да", "Нет");
-
-        //            if (confirm)
-        //            {
-        //                var deleted = await _databaseService.DeletePattern(pattern.Id, _currentUser.Id);
-        //                if (deleted)
-        //                {
-        //                    await DisplayAlert("Успех", "Схема удалена", "OK");
-        //                    await LoadPatterns();  // ← теперь можно await
-        //                }
-        //                else
-        //                {
-        //                    await DisplayAlert("Ошибка", "Не удалось удалить схему", "OK");
-        //                }
-        //            }
-        //        }
-        //    }
-
-        //    PatternsCollection.SelectedItem = null;
-        //}
         private async void OnBackClicked(object sender, EventArgs e)
         {
             await Navigation.PopToRootAsync();
@@ -153,7 +96,7 @@ namespace MauiApp1.Views
         {
             if (e.CurrentSelection.FirstOrDefault() is PatternViewModel selectedPattern)
             {
-                // 1. Формируем обновленный список действий в окне
+
                 var action = await DisplayActionSheet(
                     $"Схема: {selectedPattern.Name}",
                     "Отмена",
@@ -165,7 +108,6 @@ namespace MauiApp1.Views
                     "Переименовать схему",
                     "Удалить схему");
 
-                // Подгружаем саму схему из базы данных
                 var pattern = await _databaseService.GetPatternById(selectedPattern.Id, _currentUser.Id);
 
                 if (pattern == null)
@@ -174,15 +116,12 @@ namespace MauiApp1.Views
                     return;
                 }
 
-                // 2. Обрабатываем выбор пользователя
                 if (action == "Просмотреть схему")
                 {
                     await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser));
                 }
                 else if (action == "Вышивать схему")
                 {
-                    // Переход на страницу процесса вышивки (замени PatternProgressPage на твое точное название класса, если оно отличается)
-                    //работает но подгружает не откуда надо (или нет я не помню)
                     await Navigation.PushAsync(new PatternProgressPage(pattern, _currentUser));
                 }
                 else if (action == "Просмотреть нитки")
@@ -191,13 +130,8 @@ namespace MauiApp1.Views
                 }
                 else if (action == "Сохранить в формат PNG")
                 {
-                    // Вызываем метод сохранения в PNG. 
-                    // Обрати внимание: если этот метод у тебя был написан внутри другой страницы, 
-                    // убедись, что он доступен здесь или перенеси его логику (обычно через ImageProcessor или DatabaseService)
-
                     await ExportPatternToPng(pattern);
-                    //ЭТО НЕ ТО, ПОМЕНЯТЬ
-                    //await ExportToPng(pattern);
+
                 }
                 else if (action == "Переименовать схему")
                 {
@@ -214,7 +148,6 @@ namespace MauiApp1.Views
                         var deleted = await _databaseService.DeletePattern(pattern.Id, _currentUser.Id);
                         if (deleted)
                         {
-                           // await DisplayAlert("Успех", "Схема удалена", "OK");
                             await LoadPatterns();
                         }
                         else
@@ -224,21 +157,16 @@ namespace MauiApp1.Views
                     }
                 }
             }
-
-            // Сбрасываем выделение элемента в списке, чтобы по нему можно было кликнуть снова
             PatternsCollection.SelectedItem = null;
         }
-
-
-
 
         private async Task RenamePattern(EmbroideryPattern pattern, PatternViewModel viewModel)
         {
             var newName = await DisplayPromptAsync(
                 "Переименование схемы",
                 "Введите новое название:",
-                "Переименовать",          // Текст для кнопки подтверждения
-                "Отмена",      // Текст для кнопки отмены
+                "Переименовать", 
+                "Отмена",
                 initialValue: pattern.Name,
                 maxLength: 50,
                 keyboard: Keyboard.Text);
@@ -255,9 +183,8 @@ namespace MauiApp1.Views
                 pattern.Name = newName;
                 await _databaseService.UpdatePattern(pattern);
 
-                await LoadPatterns();  // ← теперь можно await
+                await LoadPatterns(); 
 
-               // await DisplayAlert("Успех", "Схема переименована", "OK");
             }
         }
 
@@ -269,7 +196,6 @@ namespace MauiApp1.Views
                 var (colorMatrix, width, height) = processor.LoadColorMatrix(pattern.PatternDataFile);
                 var patternColors = await _databaseService.GetPatternColors(pattern.Id, _currentUser.Id);
 
-                // Единственный вопрос: цветная или контурная
                 var choice = await DisplayActionSheet(
                     "Выберите тип схемы",
                     "Отмена",
@@ -280,14 +206,12 @@ namespace MauiApp1.Views
                 if (choice == "Отмена" || choice == null) return;
                 bool isOutline = choice == "Контурная";
 
-                // Генерируем страницы (автоматически: одна или несколько)
                 List<string> pages = null;
                 await Task.Run(() =>
                 {
                     pages = processor.ExportToA4Auto(pattern, patternColors, colorMatrix, isOutline);
                 });
 
-                // Автоматически сохраняем в галерею
                 int saved = 0;
                 foreach (var page in pages)
                 {
@@ -385,13 +309,6 @@ namespace MauiApp1.Views
                 await DisplayAlert("Ошибка", $"Не удалось сохранить: {ex.Message}", "OK");
             }
         }
-
-
-
-
-
-
-
 
         public class PatternViewModel
         {

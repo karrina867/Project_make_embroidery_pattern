@@ -1,5 +1,5 @@
 ﻿using MauiApp1.Services;
-using MauiApp1.Views;  // Добавлено
+using MauiApp1.Views; 
 
 namespace MauiApp1
 {
@@ -17,11 +17,8 @@ namespace MauiApp1
 
 
 
-
-            // Создаём NavigationPage
             var navigationPage = new NavigationPage(new AuthPage());
 
-            // Отключаем навигационную панель через статический метод
             NavigationPage.SetHasNavigationBar(navigationPage, false);
 
             MainPage = navigationPage;

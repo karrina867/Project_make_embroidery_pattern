@@ -11,7 +11,7 @@ namespace MauiApp1.Views
         private string _selectedImagePath;
         private int _originalImageWidth = 0;
         private int _originalImageHeight = 0;
-        private bool _isUpdating = false; // Чтобы избежать зацикливания
+        private bool _isUpdating = false;
 
         public CreatePatternPage(User user)
         {
@@ -27,58 +27,6 @@ namespace MauiApp1.Views
             };
         }
 
-
-
-        //private async void OnSelectImageClicked(object sender, EventArgs e)
-        //{
-        //    try
-        //    {
-        //        // Настройка поддерживаемых форматов изображений
-        //        var customFileType = new FilePickerFileType(
-        //            new Dictionary<DevicePlatform, IEnumerable<string>>
-        //            {
-        //        { DevicePlatform.Android, new[] { "image/jpeg", "image/png", "image/webp" } },
-        //        { DevicePlatform.iOS, new[] { "public.image" } },
-        //        { DevicePlatform.WinUI, new[] { ".jpg", ".jpeg", ".png", ".webp" } }
-        //            });
-
-        //        var result = await FilePicker.PickAsync(new PickOptions
-        //        {
-        //            PickerTitle = "Выберите изображение",
-        //            FileTypes = customFileType
-        //        });
-
-        //        if (result != null)
-        //        {
-        //            _selectedImagePath = result.FullPath;
-        //            SelectedImage.Source = ImageSource.FromFile(_selectedImagePath);
-
-        //            // Показываем изображение и скрываем текст
-        //            SelectedImage.IsVisible = true;
-        //            SelectImageLabel.IsVisible = false;
-
-        //            // Получаем оригинальные размеры изображения
-        //            using (var stream = File.OpenRead(_selectedImagePath))
-        //            using (var bitmap = SKBitmap.Decode(stream))
-        //            {
-        //                if (bitmap != null)
-        //                {
-        //                    _originalImageWidth = bitmap.Width;
-        //                    _originalImageHeight = bitmap.Height;
-        //                }
-        //            }
-
-        //            SaveButton.IsEnabled = true;
-        //            MessageLabel.Text = "";
-
-        //          //  await AnalyzeImage();
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        await DisplayAlert("Ошибка", $"Не удалось загрузить изображение: {ex.Message}", "OK");
-        //    }
-        //}
         private async void OnSelectImageClicked(object sender, EventArgs e)
         {
             try
@@ -86,7 +34,6 @@ namespace MauiApp1.Views
                 PatternNameEntry.Unfocus();
                 WidthEntry.Unfocus();
                 HeightEntry.Unfocus();
-                // Запрашиваем разрешение на доступ к галерее
                 var status = await Permissions.RequestAsync<Permissions.StorageRead>();
                 if (status != PermissionStatus.Granted)
                 {
@@ -94,7 +41,6 @@ namespace MauiApp1.Views
                     return;
                 }
 
-                // Открываем галерею с помощью MediaPicker
                 var result = await MediaPicker.PickPhotoAsync(new MediaPickerOptions
                 {
                     Title = "Выберите изображение из галереи"
@@ -105,25 +51,14 @@ namespace MauiApp1.Views
                     _selectedImagePath = result.FullPath;
                     SelectedImage.Source = ImageSource.FromFile(_selectedImagePath);
 
-                    // Показываем изображение и скрываем текст
                     SelectedImage.IsVisible = true;
                     SelectImageLabel.IsVisible = false;
 
-                    // Получаем оригинальные размеры изображения
-                    //using (var stream = File.OpenRead(_selectedImagePath))
-                    //using (var bitmap = SKBitmap.Decode(stream))
-                    //{
-                    //    if (bitmap != null)
-                    //    {
-                    //        _originalImageWidth = bitmap.Width;
-                    //        _originalImageHeight = bitmap.Height;
-                    //    }
-                    //}
                     PatternNameEntry.Unfocus();
                     WidthEntry.Unfocus();
                     HeightEntry.Unfocus();
 
-                    var processor = new MauiApp1.Services.ImageProcessor(); // Создаем экземпляр обработчика
+                    var processor = new MauiApp1.Services.ImageProcessor();
                     using (var correctBitmap = processor.FixOrientation(_selectedImagePath))
                     {
                         if (correctBitmap != null)
@@ -135,7 +70,6 @@ namespace MauiApp1.Views
                         }
                         else
                         {
-                            // Если вдруг кодек не справился, берем дефолтный старый вариант в качестве запасного
                             using (var stream = File.OpenRead(_selectedImagePath))
                             using (var bitmap = SKBitmap.Decode(stream))
                             {
@@ -147,17 +81,6 @@ namespace MauiApp1.Views
                             }
                         }
                     }
-
-
-                    //using (var stream = await result.OpenReadAsync())
-                    //using (var bitmap = SKBitmap.Decode(stream))
-                    //{
-                    //    if (bitmap != null)
-                    //    {
-                    //        _originalImageWidth = bitmap.Width;
-                    //        _originalImageHeight = bitmap.Height;
-                    //    }
-                    //}
 
                     SaveButton.IsEnabled = true;
                     MessageLabel.Text = "";
@@ -179,7 +102,6 @@ namespace MauiApp1.Views
                 {
                     _isUpdating = true;
 
-                    // Вычисляем высоту по пропорции: newHeight = newWidth * (originalHeight / originalWidth)
                     int newHeight = (int)(newWidth * (double)_originalImageHeight / _originalImageWidth);
                     HeightEntry.Text = newHeight.ToString();
 
@@ -187,7 +109,6 @@ namespace MauiApp1.Views
                 }
             }
 
-           // AnalyzeImage();
         }
 
         private void OnHeightChanged(object sender, TextChangedEventArgs e)
@@ -200,7 +121,6 @@ namespace MauiApp1.Views
                 {
                     _isUpdating = true;
 
-                    // Вычисляем ширину по пропорции: newWidth = newHeight * (originalWidth / originalHeight)
                     int newWidth = (int)(newHeight * (double)_originalImageWidth / _originalImageHeight);
                     WidthEntry.Text = newWidth.ToString();
 
@@ -208,42 +128,7 @@ namespace MauiApp1.Views
                 }
             }
 
-           // AnalyzeImage();
         }
-
-        //private async Task AnalyzeImage()
-        //{
-        //    try
-        //    {
-        //        if (!string.IsNullOrEmpty(WidthEntry.Text) &&
-        //            !string.IsNullOrEmpty(HeightEntry.Text) &&
-        //            !string.IsNullOrEmpty(_selectedImagePath))
-        //        {
-        //            int width = int.Parse(WidthEntry.Text);
-        //            int height = int.Parse(HeightEntry.Text);
-
-        //            ColorInfoLabel.IsVisible = true;
-
-        //            string aspectInfo = "";
-        //            if (KeepAspectCheckBox.IsChecked && _originalImageWidth > 0)
-        //            {
-        //                double originalRatio = (double)_originalImageWidth / _originalImageHeight;
-        //                double currentRatio = (double)width / height;
-        //                if (Math.Abs(originalRatio - currentRatio) > 0.01)
-        //                {
-        //                    aspectInfo = "\n⚠️ Пропорции отличаются от оригинала!";
-        //                }
-        //            }
-
-        //            ColorInfoLabel.Text = $"📊 Анализ изображения:\n" +
-        //                                 $"Размер схемы: {width} x {height} крестиков\n" +
-        //                                 $"Всего крестиков: {width * height}\n" +
-        //                                 $"Ожидаемое количество цветов: ~{Math.Min(width * height / 100, 50)}" +
-        //                                 aspectInfo;
-        //        }
-        //    }
-        //    catch { }
-        //}
 
         private const int MAX_PATTERN_SIZE = 500;
         private const int MAX_PATTERNS_PER_USER = 100;
@@ -257,21 +142,18 @@ namespace MauiApp1.Views
 
         private async void OnSavePatternClicked(object sender, EventArgs e)
         {
-            // Валидация названия
             if (string.IsNullOrWhiteSpace(PatternNameEntry.Text))
             {
                 MessageLabel.Text = "Введите название схемы";
                 return;
             }
 
-            // ДОБАВИТЬ ЭТУ ПРОВЕРКУ:
             if (PatternNameEntry.Text.Length < 2)
             {
                 MessageLabel.Text = "Название схемы должно содержать минимум 2 символа";
                 return;
             }
 
-            // Проверка размера схемы
             if (!int.TryParse(WidthEntry.Text, out int width) || width <= 0 || width > MAX_PATTERN_SIZE)
             {
                 MessageLabel.Text = $"Введите корректную ширину (1-{MAX_PATTERN_SIZE})";
@@ -284,7 +166,6 @@ namespace MauiApp1.Views
                 return;
             }
 
-            // Проверка количества схем пользователя
             var userPatterns = await _databaseService.GetUserPatterns(_currentUser.Id);
             if (userPatterns.Count >= MAX_PATTERNS_PER_USER)
             {
@@ -312,7 +193,7 @@ namespace MauiApp1.Views
 
                 byte[] imageBytes = File.ReadAllBytes(_selectedImagePath);
 
-                EmbroideryPattern pattern = null;  // ← объявляем переменную здесь
+                EmbroideryPattern pattern = null; 
 
                 using (var stream = new MemoryStream(imageBytes))
                 {
@@ -333,35 +214,12 @@ namespace MauiApp1.Views
                         await _databaseService.SavePatternColors(patternId, colors);
                         await _databaseService.UpdatePatternColorCount(patternId, colors.Count);
 
-                        // Получаем сохранённую схему с ID
                         pattern = await _databaseService.GetPatternById(patternId, _currentUser.Id);
-
-                        //await DisplayAlert("Успех",
-                        //    $"Схема '{PatternNameEntry.Text}' сохранена!\n" +
-                        //    $"Размер: {width} x {height} крестиков\n" +
-                        //    $"Количество цветов: {colors.Count}",
-                        //    "OK");
-
-                        // Вместо Navigation.PopAsync() открываем просмотр
-
-
-
-
-
-
-
-                        //if (pattern != null)
-                        //{
-                        //    await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser, openedFromCreate: true));
-                        //}
 
                         if (pattern != null)
                         {
-                            // 1. Сначала открываем страницу просмотра схемы
                             await Navigation.PushAsync(new PatternViewerPage(pattern, _currentUser, openedFromCreate: true));
 
-                            // 2. А теперь ПОД чистую удаляем страницу создания из стека!
-                            // Находим её в стеке (она лежит прямо перед страницей просмотра)
                             var createPageInStack = Navigation.NavigationStack.FirstOrDefault(p => p is CreatePatternPage);
                             if (createPageInStack != null)
                             {
@@ -387,8 +245,6 @@ namespace MauiApp1.Views
                 SaveButton.IsEnabled = true;
                 SaveButton.Text = "Сохранить схему";
             }
-        }
-
-       
+        } 
     }
 }

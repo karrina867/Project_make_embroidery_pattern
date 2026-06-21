@@ -23,15 +23,12 @@ namespace MauiApp1.Views
 
         private bool _isFirstLayout = true;
 
-        // Для отслеживания активных касаний (pinch-to-zoom)
         private Dictionary<long, SKPoint> _activeTouches = new Dictionary<long, SKPoint>();
         private float _oldDistance = 0;
 
-        // Для панорамирования одним пальцем
         private long _panningTouchId = -1;
         private float _touchStartX, _touchStartY;
 
-        // Флаг: было ли движение пальца (чтобы не путать пан с тапом)
         private bool _touchMoved = false;
         private SKPoint _touchPressLocation;
 
@@ -40,11 +37,9 @@ namespace MauiApp1.Views
         private bool _isLoaded = false;
         private int _totalStitches;
 
-        // Кэш символов и контрастных цветов для O(1) поиска
         private Dictionary<uint, string> _symbolCache;
         private Dictionary<uint, SKColor> _contrastCache;
 
-        // Переиспользуемые SKPaint объекты
         private readonly SKPaint _fillPaint = new SKPaint { IsAntialias = false };
         private readonly SKPaint _textPaint = new SKPaint { TextAlign = SKTextAlign.Center, IsAntialias = true };
         private readonly SKPaint _crossPaint = new SKPaint { Color = new SKColor(80, 220, 80), IsStroke = true, IsAntialias = true };
@@ -142,25 +137,20 @@ namespace MauiApp1.Views
 
         private async void OnClearProgressClicked(object sender, EventArgs e)
         {
-            // Подтверждение очистки
             var confirm =  await DisplayAlert("Очистка прогресса", "Вы уверены, что хотите очистить весь прогресс вышивки?", "Да, очистить", "Отмена");
 
             if (!confirm) return;
 
             try
             {
-                // Очищаем локальный HashSet
                 _completedStitches.Clear();
 
-                // Сохраняем пустой прогресс в базу данных
                 await _databaseService.SaveProgress(_pattern.Id, _currentUser.Id, _completedStitches);
                 await _databaseService.UpdatePercentComplete(_pattern.Id, _currentUser.Id, _totalStitches, 0);
 
-                // Обновляем отображение
                 UpdateProgressDisplay();
                 PatternCanvas.InvalidateSurface();
 
-               // await DisplayAlert("Успех", "Прогресс вышивки полностью очищен", "OK");
             }
             catch (Exception ex)
             {
@@ -188,7 +178,6 @@ namespace MauiApp1.Views
                                 (byte)_colors[i].Blue);
                         }
 
-                        // Используем Pixels[] напрямую — в 10-20x быстрее чем SetPixel
                         var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
                         var pixels = new SKColor[width * height];
 
@@ -216,7 +205,6 @@ namespace MauiApp1.Views
             });
         }
 
-        // Строим словари для O(1) поиска символов и контрастных цветов
         private void BuildCaches()
         {
             _symbolCache = new Dictionary<uint, string>();
@@ -328,7 +316,6 @@ namespace MauiApp1.Views
 
             canvas.Translate(_offsetX, _offsetY);
 
-            // Viewport culling: рисуем только видимые клетки
             int startX = Math.Max(0, (int)(-_offsetX / _cellSize));
             int startY = Math.Max(0, (int)(-_offsetY / _cellSize));
             int endX = Math.Min(_pattern.Width, (int)((-_offsetX + _canvasWidth) / _cellSize) + 1);
@@ -351,7 +338,7 @@ namespace MauiApp1.Views
 
                     if (_completedStitches.Contains((x, y)))
                     {
-                        // Затемнённый цвет для выполненной клетки
+
                         _fillPaint.Color = new SKColor(
                             (byte)(pixelColor.Red * 0.4f),
                             (byte)(pixelColor.Green * 0.4f),
@@ -359,7 +346,6 @@ namespace MauiApp1.Views
                         _fillPaint.IsStroke = false;
                         canvas.DrawRect(rect, _fillPaint);
 
-                        // Зелёный крестик
                         if (_cellSize >= 8)
                         {
                             _crossPaint.StrokeWidth = crossStrokeWidth;
@@ -393,7 +379,6 @@ namespace MauiApp1.Views
                 }
             }
 
-            // Сетка только для видимой области
             for (int x = startX; x <= endX; x++)
             {
                 float xPos = x * _cellSize;
@@ -405,7 +390,6 @@ namespace MauiApp1.Views
                 canvas.DrawLine(startX * _cellSize, yPos, endX * _cellSize, yPos, _gridPaint);
             }
 
-            // Жирные белые линии каждые 10 клеток (только видимые)
             int thick10StartX = (startX / 10) * 10;
             int thick10StartY = (startY / 10) * 10;
             for (int x = thick10StartX; x <= endX; x += 10)
@@ -451,7 +435,6 @@ namespace MauiApp1.Views
                 if (_activeTouches.ContainsKey(id))
                     _activeTouches[id] = e.Location;
 
-                // Считаем движение значимым если сдвинулись более чем на 5 пикселей
                 float dx = e.Location.X - _touchPressLocation.X;
                 float dy = e.Location.Y - _touchPressLocation.Y;
                 if (Math.Sqrt(dx * dx + dy * dy) > 5)
@@ -493,7 +476,6 @@ namespace MauiApp1.Views
             }
             else if (e.ActionType == SKTouchAction.Released || e.ActionType == SKTouchAction.Cancelled)
             {
-                // Если не было движения — это тап, отмечаем/снимаем крестик
                 if (e.ActionType == SKTouchAction.Released && !_touchMoved && _activeTouches.Count == 1)
                 {
                     float canvasX = e.Location.X - _offsetX;

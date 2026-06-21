@@ -1,9 +1,9 @@
 ﻿using SQLite;
-using MauiApp1.Models;  // Исправлено с MauiAuthApp на MauiApp1
+using MauiApp1.Models;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace MauiApp1.Services  // Исправлено пространство имен
+namespace MauiApp1.Services  
 {
     public class DatabaseService
     {
@@ -16,20 +16,12 @@ namespace MauiApp1.Services  // Исправлено пространство и
             _dbPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "embroidery.db3");
             _imagesPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PatternImages");
 
-
-           // System.Diagnostics.Debug.WriteLine($"DB Path: {_dbPath}"); //показывает, где создается бд
-
-            // Создаем папку для изображений, если её нет
             if (!Directory.Exists(_imagesPath))
             {
                 Directory.CreateDirectory(_imagesPath);
             }
         }
 
-
-
-
-        //что бы удалить старую бд при модификациях бд
         public void DeleteDatabase()
         {
             if (File.Exists(_dbPath))
@@ -37,15 +29,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
                 File.Delete(_dbPath);
             }
         }
-        //
-
-
-
-
-
-
-
-
 
         private async Task Init()
         {
@@ -59,7 +42,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
             await _database.CreateTableAsync<EmbroideryProgress>();
 
         }
-
         private string HashPassword(string password)
         {
             using (var sha256 = SHA256.Create())
@@ -178,9 +160,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
             return await _database.Table<User>().ToListAsync();
         }
 
-        // Добавьте в класс DatabaseService новые методы
-
-        // Сохранение цветов схемы
         public async Task<bool> SavePatternColors(int patternId, List<EmbroideryColor> colors)
         {
             try
@@ -201,30 +180,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
-        //// Получение цветов схемы
-        //public async Task<List<EmbroideryColor>> GetPatternColors(int patternId)
-        //{
-        //    await Init();
-        //    return await _database.Table<EmbroideryColor>()
-        //        .Where(c => c.PatternId == patternId)
-        //        .OrderBy(c => c.Symbol)
-        //        .ToListAsync();
-        //}
-
-        //// Обновление количества цветов в схеме
-        //public async Task UpdatePatternColorCount(int patternId, int colorCount)
-        //{
-        //    await Init();
-        //    var pattern = await _database.Table<EmbroideryPattern>()
-        //        .FirstOrDefaultAsync(p => p.Id == patternId);
-
-        //    if (pattern != null)
-        //    {
-        //        pattern.ColorCount = colorCount;
-        //        await _database.UpdateAsync(pattern);
-        //    }
-        //}
-        // Получение цветов схемы
         public async Task<List<EmbroideryColor>> GetPatternColors(int patternId)
         {
             await Init();
@@ -234,25 +189,22 @@ namespace MauiApp1.Services  // Исправлено пространство и
                 .ToListAsync();
         }
 
-        // Обновление количества цветов в схеме
         public async Task UpdatePatternColorCount(int patternId, int colorCount)
         {
             await Init();
             var pattern = await _database.Table<EmbroideryPattern>()
-                .FirstOrDefaultAsync(p => p.Id == patternId);  // Исправлено: p вместо c, и добавлено Async
+                .FirstOrDefaultAsync(p => p.Id == patternId);
 
             if (pattern != null)
             {
                 pattern.ColorCount = colorCount;
-                await _database.UpdateAsync(pattern);  // Исправлено: _database вместо database
+                await _database.UpdateAsync(pattern);
             }
         }
 
 
         #region Методы для работы со схемами вышивки
 
-        // Сохранение схемы
-        // Сохранение схемы
         public async Task<(bool success, string message, int patternId)> SavePattern(EmbroideryPattern pattern, Stream imageStream, int userId)
         {
             try
@@ -275,7 +227,7 @@ namespace MauiApp1.Services  // Исправлено пространство и
 
                 pattern.ImageFileName = fileName;
                 pattern.CreatedAt = DateTime.Now;
-                pattern.UserId = userId;  // ← Привязываем схему к пользователю
+                pattern.UserId = userId;
 
                 await _database.InsertAsync(pattern);
 
@@ -287,17 +239,15 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
-        // Получение всех схем ТОЛЬКО для конкретного пользователя
         public async Task<List<EmbroideryPattern>> GetUserPatterns(int userId)
         {
             await Init();
             return await _database.Table<EmbroideryPattern>()
-                .Where(p => p.UserId == userId)  // ← Фильтр по пользователю
+                .Where(p => p.UserId == userId) 
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
         }
 
-        // Получение одной схемы с проверкой принадлежности пользователю
         public async Task<EmbroideryPattern> GetPatternById(int patternId, int userId)
         {
             await Init();
@@ -305,16 +255,12 @@ namespace MauiApp1.Services  // Исправлено пространство и
                 .FirstOrDefaultAsync(p => p.Id == patternId && p.UserId == userId);
         }
 
-        // Получение всех схем
         public async Task<List<EmbroideryPattern>> GetAllPatterns()
         {
             await Init();
             return await _database.Table<EmbroideryPattern>().OrderByDescending(p => p.CreatedAt).ToListAsync();
         }
 
-
-        // Удаление схемы (с проверкой прав)
-        // Удаление схемы (с удалением файла матрицы)
         public async Task<bool> DeletePattern(int patternId, int userId)
         {
             try
@@ -325,7 +271,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
                 if (pattern == null)
                     return false;
 
-                // Удаляем файл матрицы цветов
                 if (!string.IsNullOrEmpty(pattern.PatternDataFile))
                 {
                     var matrixPath = Path.Combine(FileSystem.AppDataDirectory, pattern.PatternDataFile);
@@ -333,17 +278,14 @@ namespace MauiApp1.Services  // Исправлено пространство и
                         File.Delete(matrixPath);
                 }
 
-                // Удаляем файл изображения
                 var imagePath = GetImagePath(pattern.ImageFileName);
                 if (File.Exists(imagePath))
                     File.Delete(imagePath);
 
-                // Удаляем цвета из БД
                 var colors = await GetPatternColors(patternId, userId);
                 foreach (var color in colors)
                     await _database.DeleteAsync(color);
 
-                // Удаляем схему
                 await _database.DeleteAsync(pattern);
                 return true;
             }
@@ -353,39 +295,33 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
-        // Получение цветов схемы (с проверкой прав)
         public async Task<List<EmbroideryColor>> GetPatternColors(int patternId, int userId)
         {
             await Init();
 
-            // Один запрос вместо двух — получаем цвета сразу, проверка прав уже была на уровне выше
             return await _database.Table<EmbroideryColor>()
                 .Where(c => c.PatternId == patternId)
                 .OrderBy(c => c.Symbol)
                 .ToListAsync();
         }
 
-        // Получение пути к изображению схемы
         public string GetImagePath(string imageFileName)
         {
             return Path.Combine(_imagesPath, imageFileName);
         }
 
-        // Удаление схемы
         public async Task<bool> DeletePattern(EmbroideryPattern pattern)
         {
             try
             {
                 await Init();
 
-                // Удаляем файл изображения
                 var imagePath = GetImagePath(pattern.ImageFileName);
                 if (File.Exists(imagePath))
                 {
                     File.Delete(imagePath);
                 }
 
-                // Удаляем запись из БД
                 await _database.DeleteAsync(pattern);
                 return true;
             }
@@ -397,12 +333,8 @@ namespace MauiApp1.Services  // Исправлено пространство и
 
         #endregion
 
-
-
-
         #region Методы для работы с прогрессом вышивки
 
-        // Сохранение или обновление прогресса
         public async Task<bool> SaveProgress(int patternId, int userId, HashSet<(int x, int y)> completedStitches)
         {
             try
@@ -412,7 +344,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
                 var progress = await _database.Table<EmbroideryProgress>()
                     .FirstOrDefaultAsync(p => p.PatternId == patternId && p.UserId == userId);
 
-                // Преобразуем HashSet в строку
                 var stitchesString = string.Join(";", completedStitches.Select(s => $"{s.x},{s.y}"));
 
                 if (progress == null)
@@ -423,7 +354,7 @@ namespace MauiApp1.Services  // Исправлено пространство и
                         UserId = userId,
                         CompletedStitches = stitchesString,
                         LastUpdated = DateTime.Now,
-                        PercentComplete = completedStitches.Count * 100 / (patternId > 0 ? 1 : 1) // Временно, обновим позже
+                        PercentComplete = completedStitches.Count * 100 / (patternId > 0 ? 1 : 1) 
                     };
                     await _database.InsertAsync(progress);
                 }
@@ -442,7 +373,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
-        // Добавьте в класс DatabaseService
         public async Task<bool> UpdatePattern(EmbroideryPattern pattern)
         {
             try
@@ -457,8 +387,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
-
-        // Получение прогресса для схемы
         public async Task<HashSet<(int x, int y)>> GetProgress(int patternId, int userId)
         {
             try
@@ -491,7 +419,6 @@ namespace MauiApp1.Services  // Исправлено пространство и
             }
         }
 
-        // Обновление процента выполнения
         public async Task UpdatePercentComplete(int patternId, int userId, int totalStitches, int completedStitches)
         {
             try

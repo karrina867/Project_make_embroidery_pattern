@@ -15,8 +15,6 @@ namespace MauiApp1.Views
             _databaseService = new DatabaseService();
             _pattern = pattern;
             _currentUser = user;
-
-            // Заполняем статичные поля сразу — без ожидания БД
             PatternNameLabel.Text = pattern.Name;
             PatternSizeLabel.Text = $"{pattern.Width * pattern.Height} крестиков";
             PatternColorsLabel.Text = $"{pattern.ColorCount} цветов";

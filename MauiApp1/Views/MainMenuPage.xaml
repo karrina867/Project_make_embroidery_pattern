@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.MainMenuPage"
              NavigationPage.HasNavigationBar="False"
-             Title="Схемы вышивки">
+             Title="Схемы вышивки"
+             BackgroundColor="#1a1a1a">
 
     <VerticalStackLayout Spacing="20" Padding="30" VerticalOptions="Center">
 

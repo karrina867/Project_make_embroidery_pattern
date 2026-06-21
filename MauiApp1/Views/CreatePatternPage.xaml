@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="MauiApp1.Views.CreatePatternPage"
              Title="Создание схемы"
+             BackgroundColor="#1a1a1a"
              NavigationPage.HasNavigationBar="False">
 
     <Grid RowDefinitions="Auto,*">

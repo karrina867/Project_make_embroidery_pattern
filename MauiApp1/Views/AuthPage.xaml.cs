@@ -43,8 +43,6 @@ namespace MauiApp1.Views
 
             if (success && user != null)
             {
-               // await DisplayAlert("Успех", message, "OK");
-
                 var mainMenuPage = new MainMenuPage(user);
                 var navigationPage = new NavigationPage(mainMenuPage);
                 NavigationPage.SetHasNavigationBar(navigationPage, false);
@@ -70,20 +68,15 @@ namespace MauiApp1.Views
 
             if (success)
             {
-                
                 RegLoginEntry.Text = "";
                 RegEmailEntry.Text = "";
                 RegPasswordEntry.Text = "";
                 RegConfirmPasswordEntry.Text = "";
 
-               
                 var (loginSuccess, loginMessage, user) = await _databaseService.LoginUser(login, password);
-
 
                 if (loginSuccess && user != null)
                 {
-                   // await DisplayAlert("Успех", "Регистрация пройдена! Выполняется вход...", "OK");
-
                     var mainMenuPage = new MainMenuPage(user);
                     var navigationPage = new NavigationPage(mainMenuPage);
                     NavigationPage.SetHasNavigationBar(navigationPage, false);
@@ -92,11 +85,8 @@ namespace MauiApp1.Views
                
                 else
                 {
-                    // Если автоматический вход не сработал, показываем форму входа
                     await DisplayAlert("Успех", "Регистрация пройдена! Теперь войдите в систему.", "OK");
                     OnLoginModeClicked(null, null);
-
-                    // Автозаполняем поля входа
                     LoginOrEmailEntry.Text = login;
                     LoginPasswordEntry.Text = password;
                 }

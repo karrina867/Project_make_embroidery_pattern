@@ -6,7 +6,6 @@ namespace MauiApp1.Services
 {
     public class ImageProcessor
     {
-        // Класс для хранения информации о цвете
         public class QuantizedColor
         {
             public SKColor Color { get; set; }
@@ -14,7 +13,6 @@ namespace MauiApp1.Services
             public List<SKPointI> Positions { get; set; } = new List<SKPointI>();
         }
 
-        //ProcessImageWithMatrix
         public async Task<List<EmbroideryColor>> ProcessImage(string imagePath, int targetWidth, int targetHeight)
         {
             return await Task.Run(() =>
@@ -24,16 +22,12 @@ namespace MauiApp1.Services
                     if (originalBitmap == null)
                         throw new Exception("Не удалось загрузить изображение");
 
-                    // 1. Изменяем размер изображения
                     var resizedBitmap = ResizeBitmap(originalBitmap, targetWidth, targetHeight);
 
-                    // 2. Извлекаем все цвета
                     var colors = ExtractColors(resizedBitmap);
 
-                    // 3. Уменьшаем количество цветов (оставляем максимум 50)
                     var reducedColors = ReduceColors(colors, maxColors: 50);
 
-                    // 4. Назначаем символы цветам
                     var embroideryColors = AssignSymbols(reducedColors);
 
                     return embroideryColors;
@@ -51,19 +45,14 @@ namespace MauiApp1.Services
                     if (originalBitmap == null)
                         throw new Exception("Не удалось загрузить изображение");
 
-                    // Изменяем размер до целевого
                     var resizedBitmap = ResizeBitmap(originalBitmap, targetWidth, targetHeight);
 
-                    // Извлекаем все цвета
                     var colorDict = ExtractColorsWithPositions(resizedBitmap);
 
-                    // Уменьшаем количество цветов (максимум 50)
                     var reducedColors = ReduceColors(colorDict.Values.ToList(), maxColors: 50);
 
-                    // Назначаем символы
                     var embroideryColors = AssignSymbols(reducedColors);
 
-                    // Создаем карту цветов
                     var colorMap = new Dictionary<SKColor, int>();
                     for (int i = 0; i < embroideryColors.Count; i++)
                     {
@@ -74,7 +63,6 @@ namespace MauiApp1.Services
                         colorMap[color] = i;
                     }
 
-                    // Создаем матрицу индексов цветов
                     var colorMatrix = new int[targetWidth, targetHeight];
                     for (int x = 0; x < targetWidth; x++)
                     {
@@ -89,7 +77,6 @@ namespace MauiApp1.Services
                             }
                             else
                             {
-                                // Находим ближайший цвет
                                 int closestIndex = FindClosestColorIndex(simplifiedColor, embroideryColors);
                                 colorMatrix[x, y] = closestIndex;
                             }
@@ -100,7 +87,6 @@ namespace MauiApp1.Services
                 }
             });
         }
-        // Извлечение цветов с позициями
         private Dictionary<SKColor, QuantizedColor> ExtractColorsWithPositions(SKBitmap bitmap)
         {
             var colorDict = new Dictionary<SKColor, QuantizedColor>();
@@ -127,7 +113,6 @@ namespace MauiApp1.Services
             return colorDict;
         }
 
-        // Поиск ближайшего цвета
         private int FindClosestColorIndex(SKColor color, List<EmbroideryColor> colors)
         {
             int closestIndex = 0;
@@ -149,9 +134,6 @@ namespace MauiApp1.Services
             return closestIndex;
         }
 
-        //// var bitmap = SKBitmap.Decode(filePath);
-
-        // Сохранение матрицы в файл
         public string SaveColorMatrix(int[,] matrix, string patternName)
         {
             var safeName = string.Join("_", patternName.Split(Path.GetInvalidFileNameChars()));
@@ -160,11 +142,9 @@ namespace MauiApp1.Services
 
             using (var writer = new BinaryWriter(File.OpenWrite(filePath)))
             {
-                // Записываем размеры
-                writer.Write(matrix.GetLength(0)); // width
-                writer.Write(matrix.GetLength(1)); // height
+                writer.Write(matrix.GetLength(0)); 
+                writer.Write(matrix.GetLength(1)); 
 
-                // Записываем матрицу индексов
                 for (int y = 0; y < matrix.GetLength(1); y++)
                 {
                     for (int x = 0; x < matrix.GetLength(0); x++)
@@ -176,9 +156,7 @@ namespace MauiApp1.Services
 
             return fileName;
         }
-        //ExportToA4Auto
 
-        // Загрузка матрицы из файла
         public (int[,] matrix, int width, int height) LoadColorMatrix(string fileName)
         {
             var filePath = Path.Combine(FileSystem.AppDataDirectory, fileName);
@@ -203,7 +181,6 @@ namespace MauiApp1.Services
                 return (matrix, width, height);
             }
         }
-
         private SKBitmap ResizeBitmap(SKBitmap original, int width, int height)
         {
             var resized = new SKBitmap(width, height);
@@ -218,59 +195,54 @@ namespace MauiApp1.Services
 
         public SKBitmap FixOrientation(string filePath)
         {
-            // 1. Читаем файл через кодек, чтобы узнать его реальную EXIF-ориентацию
+
             using (var codec = SKCodec.Create(filePath))
             {
                 if (codec == null) return SKBitmap.Decode(filePath);
 
-                // Декодируем базовое изображение
                 var bitmap = SKBitmap.Decode(filePath);
                 if (bitmap == null) return null;
 
-                // Получаем метку ориентации
                 var orientation = codec.EncodedOrigin;
 
-                // Если картинка изначально ориентирована правильно (TopLeft), просто возвращаем её
                 if (orientation == SKEncodedOrigin.TopLeft)
                 {
                     return bitmap;
                 }
 
-                // Вычисляем, на сколько градусов и как нужно повернуть
                 int degrees = 0;
                 bool flip = false;
 
                 switch (orientation)
                 {
-                    case SKEncodedOrigin.TopRight: // Отразить по горизонтали
+                    case SKEncodedOrigin.TopRight: 
                         flip = true;
                         break;
-                    case SKEncodedOrigin.BottomRight: // Повернуть на 180 градусов
+                    case SKEncodedOrigin.BottomRight: 
                         degrees = 180;
                         break;
-                    case SKEncodedOrigin.BottomLeft: // Повернуть на 180 и отразить
+                    case SKEncodedOrigin.BottomLeft: 
                         degrees = 180;
                         flip = true;
                         break;
-                    case SKEncodedOrigin.LeftTop: // Повернуть на 90 по часовой и отразить
+                    case SKEncodedOrigin.LeftTop: 
                         degrees = 90;
                         flip = true;
                         break;
-                    case SKEncodedOrigin.RightTop: // Повернуть на 90 по часовой
+                    case SKEncodedOrigin.RightTop:
                         degrees = 90;
                         break;
-                    case SKEncodedOrigin.RightBottom: // Повернуть на 270 по часовой и отразить
+                    case SKEncodedOrigin.RightBottom: 
                         degrees = 270;
                         flip = true;
                         break;
-                    case SKEncodedOrigin.LeftBottom: // Повернуть на 270 по часовой
+                    case SKEncodedOrigin.LeftBottom: 
                         degrees = 270;
                         break;
                 }
 
                 if (degrees == 0 && !flip) return bitmap;
 
-                // Создаем новый битмап с учетом измененных размеров (если поворот на 90 или 270 градусов)
                 bool isSwapped = degrees == 90 || degrees == 270;
                 int newWidth = isSwapped ? bitmap.Height : bitmap.Width;
                 int newHeight = isSwapped ? bitmap.Width : bitmap.Height;
@@ -281,7 +253,6 @@ namespace MauiApp1.Services
                 {
                     canvas.Clear(SKColors.Transparent);
 
-                    // Сдвигаем холст в центр для корректного поворота
                     canvas.Translate(newWidth / 2f, newHeight / 2f);
                     canvas.RotateDegrees(degrees);
 
@@ -290,27 +261,13 @@ namespace MauiApp1.Services
                         canvas.Scale(-1, 1);
                     }
 
-                    // Рисуем старую картинку на новый повернутый холст
                     canvas.DrawBitmap(bitmap, -bitmap.Width / 2f, -bitmap.Height / 2f);
                 }
 
-                bitmap.Dispose(); // Освобождаем память от старого перевернутого битмапа
+                bitmap.Dispose(); 
                 return rotatedBitmap;
             }
         }
-        //bitmap = SKBitmap
-
-        //private SKBitmap ResizeBitmap(SKBitmap original, int width, int height)
-        //{
-        //    var resized = new SKBitmap(width, height);
-        //    using (var canvas = new SKCanvas(resized))
-        //    {
-        //        var destRect = new SKRect(0, 0, width, height);
-        //        var srcRect = new SKRect(0, 0, original.Width, original.Height);
-        //        canvas.DrawBitmap(original, srcRect, destRect);
-        //    }
-        //    return resized;
-        //}
 
         private List<QuantizedColor> ExtractColors(SKBitmap bitmap)
         {
@@ -321,7 +278,6 @@ namespace MauiApp1.Services
                 for (int y = 0; y < bitmap.Height; y++)
                 {
                     var pixelColor = bitmap.GetPixel(x, y);
-                    // Упрощаем цвет для уменьшения оттенков
                     var simplifiedColor = SimplifyColor(pixelColor);
 
                     if (!colorDict.ContainsKey(simplifiedColor))
@@ -342,7 +298,7 @@ namespace MauiApp1.Services
 
         private SKColor SimplifyColor(SKColor color, int step = 32)
         {
-            // Округляем компоненты цвета до шага (квантование)
+
             byte r = (byte)((color.Red / step) * step);
             byte g = (byte)((color.Green / step) * step);
             byte b = (byte)((color.Blue / step) * step);
@@ -354,7 +310,6 @@ namespace MauiApp1.Services
             if (colors.Count <= maxColors)
                 return colors;
 
-            // Оставляем только самые частые цвета
             return colors.Take(maxColors).ToList();
         }
 
@@ -375,7 +330,6 @@ namespace MauiApp1.Services
             {
                 var color = colors[i].Color;
 
-                // Поиск DMC и Gamma кодов
                 var (dmcCode, gammaCode) = FindFlossCodes(color);
 
                 result.Add(new EmbroideryColor
@@ -394,7 +348,6 @@ namespace MauiApp1.Services
             return result;
         }
 
-        // Сохранение матрицы цветов в файл
         public async Task<string> SavePatternMatrix(int[,] colorIndices, List<EmbroideryColor> colors)
         {
             return await Task.Run(() =>
@@ -404,10 +357,8 @@ namespace MauiApp1.Services
 
                 using (var writer = new StreamWriter(filePath))
                 {
-                    // Записываем размеры
                     writer.WriteLine($"{colorIndices.GetLength(0)},{colorIndices.GetLength(1)}");
 
-                    // Записываем индексы цветов
                     for (int y = 0; y < colorIndices.GetLength(1); y++)
                     {
                         for (int x = 0; x < colorIndices.GetLength(0); x++)
@@ -427,81 +378,6 @@ namespace MauiApp1.Services
             return $"#{color.Red:X2}{color.Green:X2}{color.Blue:X2}";
         }
 
-        //private string FindClosestDMC(SKColor color)
-        //{
-        //    // База DMC цветов (можно расширить)
-        //    var dmcColors = new Dictionary<string, SKColor>
-        //    {
-        //        // Белые и кремовые
-        //        { "BLANC", new SKColor(255, 255, 255) },
-        //        { "ECRU", new SKColor(248, 240, 227) },
-
-        //        // Черные и серые
-        //        { "310", new SKColor(0, 0, 0) },
-        //        { "317", new SKColor(108, 108, 108) },
-        //        { "318", new SKColor(163, 163, 163) },
-        //        { "415", new SKColor(204, 204, 204) },
-
-        //        // Красные
-        //        { "321", new SKColor(255, 60, 60) },
-        //        { "666", new SKColor(220, 20, 20) },
-        //        { "304", new SKColor(180, 30, 30) },
-        //        { "498", new SKColor(150, 20, 20) },
-
-        //        // Зеленые
-        //        { "700", new SKColor(0, 150, 0) },
-        //        { "701", new SKColor(0, 120, 0) },
-        //        { "702", new SKColor(0, 180, 0) },
-        //        { "703", new SKColor(0, 210, 0) },
-        //        { "704", new SKColor(0, 200, 0) },
-
-        //        // Синие
-        //        { "796", new SKColor(0, 60, 200) },
-        //        { "797", new SKColor(0, 80, 230) },
-        //        { "798", new SKColor(0, 100, 250) },
-        //        { "799", new SKColor(0, 130, 255) },
-        //        { "800", new SKColor(0, 50, 150) },
-
-        //        // Желтые и оранжевые
-        //        { "972", new SKColor(255, 200, 0) },
-        //        { "973", new SKColor(255, 150, 0) },
-        //        { "742", new SKColor(255, 180, 50) },
-        //        { "743", new SKColor(255, 200, 100) },
-
-        //        // Фиолетовые
-        //        { "550", new SKColor(80, 0, 120) },
-        //        { "552", new SKColor(100, 30, 140) },
-        //        { "553", new SKColor(130, 60, 160) },
-        //        { "554", new SKColor(160, 90, 180) },
-
-        //        // Розовые
-        //        { "605", new SKColor(255, 130, 150) },
-        //        { "606", new SKColor(255, 80, 100) },
-        //        { "602", new SKColor(220, 60, 90) },
-        //        { "603", new SKColor(200, 50, 80) },
-
-        //        // Коричневые
-        //        { "300", new SKColor(80, 40, 20) },
-        //        { "301", new SKColor(100, 50, 25) },
-        //        { "302", new SKColor(120, 60, 30) },
-        //        { "303", new SKColor(140, 70, 35) },
-        //    };
-
-        //    // Находим ближайший цвет по сумме разниц RGB
-        //    var closest = dmcColors.OrderBy(dmc =>
-        //        Math.Abs(dmc.Value.Red - color.Red) +
-        //        Math.Abs(dmc.Value.Green - color.Green) +
-        //        Math.Abs(dmc.Value.Blue - color.Blue))
-        //        .FirstOrDefault();
-
-        //    return closest.Key;
-        //}
-
-
-
-        /// <summary>
-        /// Сохраняет схему вышивки в PNG файл (ОПТИМИЗИРОВАННАЯ ВЕРСИЯ)
-        /// </summary>
         public string SavePatternAsPng(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -513,15 +389,12 @@ namespace MauiApp1.Services
             int width = pattern.Width * cellSize;
             int height = pattern.Height * cellSize;
 
-            // Предварительно создаем карту цветов SKColor для быстрого доступа
             var skColors = new SKColor[colors.Count];
             for (int i = 0; i < colors.Count; i++)
             {
                 skColors[i] = new SKColor((byte)colors[i].Red, (byte)colors[i].Green, (byte)colors[i].Blue);
             }
 
-            // Предварительно создаем массив индексов для быстрого доступа к матрице
-            // Сжимаем 2D матрицу в 1D массив для быстрого доступа
             int totalCells = pattern.Width * pattern.Height;
             var colorIndices = new int[totalCells];
             for (int y = 0; y < pattern.Height; y++)
@@ -534,10 +407,10 @@ namespace MauiApp1.Services
 
             using (var bitmap = new SKBitmap(width, height))
             {
-                // БЛОЧНАЯ ОТРИСОВКА - заполняем целыми строками цветов
+
                 using (var canvas = new SKCanvas(bitmap))
                 {
-                    // Оптимизация: рисуем прямоугольниками вместо попиксельной заливки
+
                     for (int y = 0; y < pattern.Height; y++)
                     {
                         for (int x = 0; x < pattern.Width; x++)
@@ -556,12 +429,11 @@ namespace MauiApp1.Services
                     }
                 }
 
-                // Рисуем символы (если нужно) - только при большом размере клетки
                 if (showSymbols && cellSize >= 20)
                 {
                     using (var canvas = new SKCanvas(bitmap))
                     {
-                        // Предварительно создаем краски для текста
+
                         var textPaints = new SKPaint[colors.Count];
                         for (int i = 0; i < colors.Count; i++)
                         {
@@ -592,7 +464,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Освобождаем ресурсы
                         foreach (var paint in textPaints)
                         {
                             paint?.Dispose();
@@ -600,7 +471,6 @@ namespace MauiApp1.Services
                     }
                 }
 
-                // Рисуем сетку (если нужно и размер клетки не слишком маленький)
                 if (showGrid && cellSize >= 8)
                 {
                     using (var canvas = new SKCanvas(bitmap))
@@ -609,17 +479,15 @@ namespace MauiApp1.Services
                         Color = SKColors.Black,
                         StrokeWidth = Math.Max(0.5f, cellSize / 30f),
                         IsStroke = true,
-                        IsAntialias = false  // Отключаем сглаживание для скорости
+                        IsAntialias = false 
                     })
                     {
-                        // Рисуем только вертикальные линии
                         for (int x = 0; x <= pattern.Width; x++)
                         {
                             float xPos = x * cellSize;
                             canvas.DrawLine(xPos, 0, xPos, height, gridPaint);
                         }
 
-                        // Рисуем только горизонтальные линии
                         for (int y = 0; y <= pattern.Height; y++)
                         {
                             float yPos = y * cellSize;
@@ -628,13 +496,12 @@ namespace MauiApp1.Services
                     }
                 }
 
-                // Сохраняем в PNG с максимальной скоростью сжатия
                 var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
                 var fileName = $"{safeName}_схема_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                 var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
 
                 using (var image = SKImage.FromBitmap(bitmap))
-                using (var data = image.Encode(SKEncodedImageFormat.Png, 85)) // Уменьшил качество до 85% для скорости
+                using (var data = image.Encode(SKEncodedImageFormat.Png, 85))
                 {
                     using (var stream = File.Create(filePath))
                     {
@@ -645,22 +512,19 @@ namespace MauiApp1.Services
                 return filePath;
             }
         }
-        /// <summary>
-        /// Сохраняет большую схему в несколько PNG файлов (постранично)
-        /// </summary>
+
         public List<string> SavePatternAsPages(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
             int[,] colorMatrix,
-            int pageWidth = 50,   // Ширина страницы в крестиках
-            int pageHeight = 50,  // Высота страницы в крестиках
+            int pageWidth = 50, 
+            int pageHeight = 50, 
             int cellSize = 25,
             bool showSymbols = true,
             bool showGrid = true)
         {
             var result = new List<string>();
 
-            // Вычисляем количество страниц
             int pagesX = (int)Math.Ceiling((double)pattern.Width / pageWidth);
             int pagesY = (int)Math.Ceiling((double)pattern.Height / pageHeight);
 
@@ -669,14 +533,12 @@ namespace MauiApp1.Services
 
             System.Diagnostics.Debug.WriteLine($"Разделение схемы {pattern.Width}x{pattern.Height} на {pagesX}x{pagesY} = {totalPages} страниц");
 
-            // Предварительная подготовка данных
             var skColors = new SKColor[colors.Count];
             for (int i = 0; i < colors.Count; i++)
             {
                 skColors[i] = new SKColor((byte)colors[i].Red, (byte)colors[i].Green, (byte)colors[i].Blue);
             }
 
-            // Сжимаем 2D матрицу в 1D массив
             int totalCells = pattern.Width * pattern.Height;
             var colorIndices = new int[totalCells];
             for (int y = 0; y < pattern.Height; y++)
@@ -687,14 +549,12 @@ namespace MauiApp1.Services
                 }
             }
 
-            // Создаем каждую страницу
             for (int pageY = 0; pageY < pagesY; pageY++)
             {
                 for (int pageX = 0; pageX < pagesX; pageX++)
                 {
                     currentPage++;
 
-                    // Определяем границы текущей страницы
                     int startX = pageX * pageWidth;
                     int startY = pageY * pageHeight;
                     int endX = Math.Min(startX + pageWidth, pattern.Width);
@@ -706,10 +566,9 @@ namespace MauiApp1.Services
                     using (var bitmap = new SKBitmap(pageWidthPx, pageHeightPx))
                     using (var canvas = new SKCanvas(bitmap))
                     {
-                        // Очищаем белым
+
                         canvas.Clear(SKColors.White);
 
-                        // Рисуем клетки
                         for (int y = startY; y < endY; y++)
                         {
                             for (int x = startX; x < endX; x++)
@@ -727,7 +586,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Рисуем символы
                         if (showSymbols && cellSize >= 20)
                         {
                             var textPaints = new SKPaint[colors.Count];
@@ -765,7 +623,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Рисуем сетку
                         if (showGrid && cellSize >= 8)
                         {
                             using (var gridPaint = new SKPaint
@@ -790,7 +647,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Добавляем информацию о странице
                         using (var textPaint = new SKPaint
                         {
                             Color = SKColors.Black,
@@ -802,7 +658,6 @@ namespace MauiApp1.Services
                             canvas.DrawText(pageInfo, 10, pageHeightPx - 10, textPaint);
                         }
 
-                        // Сохраняем страницу
                         var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
                         var fileName = $"{safeName}_стр{pageY + 1}_кол{pageX + 1}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                         var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
@@ -824,156 +679,6 @@ namespace MauiApp1.Services
             return result;
         }
 
-
-
-
-        ///// <summary>
-        ///// Сохраняет схему вышивки в черно-белый PNG файл (оттенки серого)
-        ///// </summary>
-        //public string SavePatternAsBlackAndWhitePng(
-        //    EmbroideryPattern pattern,
-        //    List<EmbroideryColor> colors,
-        //    int[,] colorMatrix,
-        //    int cellSize = 25,
-        //    bool showSymbols = true,
-        //    bool showGrid = true)
-        //{
-        //    int width = pattern.Width * cellSize;
-        //    int height = pattern.Height * cellSize;
-
-        //    // Предварительно создаем карту цветов SKColor для быстрого доступа
-        //    var skColors = new SKColor[colors.Count];
-        //    for (int i = 0; i < colors.Count; i++)
-        //    {
-        //        skColors[i] = new SKColor((byte)colors[i].Red, (byte)colors[i].Green, (byte)colors[i].Blue);
-        //    }
-
-        //    // Предварительно вычисляем яркость для каждого цвета (оттенок серого)
-        //    var grayValues = new byte[colors.Count];
-        //    for (int i = 0; i < colors.Count; i++)
-        //    {
-        //        // Формула яркости для оттенков серого
-        //        byte gray = (byte)(skColors[i].Red * 0.299 + skColors[i].Green * 0.587 + skColors[i].Blue * 0.114);
-        //        grayValues[i] = gray;
-        //    }
-
-        //    // Сжимаем 2D матрицу в 1D массив для быстрого доступа
-        //    int totalCells = pattern.Width * pattern.Height;
-        //    var colorIndices = new int[totalCells];
-        //    for (int y = 0; y < pattern.Height; y++)
-        //    {
-        //        for (int x = 0; x < pattern.Width; x++)
-        //        {
-        //            colorIndices[y * pattern.Width + x] = colorMatrix[x, y];
-        //        }
-        //    }
-
-        //    using (var bitmap = new SKBitmap(width, height))
-        //    {
-        //        // Отрисовка черно-белых клеток
-        //        using (var canvas = new SKCanvas(bitmap))
-        //        {
-        //            for (int y = 0; y < pattern.Height; y++)
-        //            {
-        //                for (int x = 0; x < pattern.Width; x++)
-        //                {
-        //                    int colorIndex = colorIndices[y * pattern.Width + x];
-        //                    byte gray = grayValues[colorIndex];
-        //                    var grayColor = new SKColor(gray, gray, gray);
-
-        //                    using (var paint = new SKPaint { Color = grayColor, IsAntialias = false })
-        //                    {
-        //                        float left = x * cellSize;
-        //                        float top = y * cellSize;
-        //                        var rect = SKRect.Create(left, top, cellSize, cellSize);
-        //                        canvas.DrawRect(rect, paint);
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        // Рисуем символы (белые или черные для контраста)
-        //        if (showSymbols && cellSize >= 20)
-        //        {
-        //            using (var canvas = new SKCanvas(bitmap))
-        //            {
-        //                for (int y = 0; y < pattern.Height; y++)
-        //                {
-        //                    for (int x = 0; x < pattern.Width; x++)
-        //                    {
-        //                        int colorIndex = colorIndices[y * pattern.Width + x];
-        //                        var symbol = colors[colorIndex].Symbol;
-        //                        byte gray = grayValues[colorIndex];
-
-        //                        if (!string.IsNullOrEmpty(symbol))
-        //                        {
-        //                            // Выбираем контрастный цвет: на темном фоне - белый, на светлом - черный
-        //                            var textColor = gray < 128 ? SKColors.White : SKColors.Black;
-
-        //                            using (var textPaint = new SKPaint
-        //                            {
-        //                                Color = textColor,
-        //                                TextSize = cellSize * 0.45f,
-        //                                TextAlign = SKTextAlign.Center,
-        //                                IsAntialias = true
-        //                            })
-        //                            {
-        //                                float centerX = x * cellSize + cellSize / 2;
-        //                                float centerY = y * cellSize + cellSize / 2 + textPaint.TextSize * 0.35f;
-        //                                canvas.DrawText(symbol, centerX, centerY, textPaint);
-        //                            }
-        //                        }
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        // Рисуем сетку
-        //        if (showGrid && cellSize >= 8)
-        //        {
-        //            using (var canvas = new SKCanvas(bitmap))
-        //            using (var gridPaint = new SKPaint
-        //            {
-        //                Color = SKColors.Black,
-        //                StrokeWidth = Math.Max(0.5f, cellSize / 30f),
-        //                IsStroke = true,
-        //                IsAntialias = false
-        //            })
-        //            {
-        //                for (int x = 0; x <= pattern.Width; x++)
-        //                {
-        //                    float xPos = x * cellSize;
-        //                    canvas.DrawLine(xPos, 0, xPos, height, gridPaint);
-        //                }
-
-        //                for (int y = 0; y <= pattern.Height; y++)
-        //                {
-        //                    float yPos = y * cellSize;
-        //                    canvas.DrawLine(0, yPos, width, yPos, gridPaint);
-        //                }
-        //            }
-        //        }
-
-        //        // Сохраняем в PNG
-        //        var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
-        //        var fileName = $"{safeName}_черно-белая_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-        //        var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
-
-        //        using (var image = SKImage.FromBitmap(bitmap))
-        //        using (var data = image.Encode(SKEncodedImageFormat.Png, 90))
-        //        {
-        //            using (var stream = File.Create(filePath))
-        //            {
-        //                data.SaveTo(stream);
-        //            }
-        //        }
-
-        //        return filePath;
-        //    }
-        //}
-        /// <summary>
-        /// Сохраняет схему в контурном режиме (только сетка и символы, без заливки)
-        /// </summary>
         public string SavePatternAsOutlinePng(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -988,10 +693,8 @@ namespace MauiApp1.Services
             using (var bitmap = new SKBitmap(width, height))
             using (var canvas = new SKCanvas(bitmap))
             {
-                // Заливаем всё белым фоном
                 canvas.Clear(SKColors.White);
 
-                // Рисуем символы
                 if (showSymbols && cellSize >= 15)
                 {
                     for (int y = 0; y < pattern.Height; y++)
@@ -1021,7 +724,6 @@ namespace MauiApp1.Services
                     }
                 }
 
-                // Рисуем сетку
                 if (showGrid && cellSize >= 8)
                 {
                     using (var gridPaint = new SKPaint
@@ -1032,14 +734,13 @@ namespace MauiApp1.Services
                         IsAntialias = false
                     })
                     {
-                        // Вертикальные линии
+
                         for (int x = 0; x <= pattern.Width; x++)
                         {
                             float xPos = x * cellSize;
                             canvas.DrawLine(xPos, 0, xPos, height, gridPaint);
                         }
 
-                        // Горизонтальные линии
                         for (int y = 0; y <= pattern.Height; y++)
                         {
                             float yPos = y * cellSize;
@@ -1047,7 +748,6 @@ namespace MauiApp1.Services
                         }
                     }
 
-                    // Толстые линии каждые 10 клеток
                     if (pattern.Width >= 10 || pattern.Height >= 10)
                     {
                         using (var thickPaint = new SKPaint
@@ -1073,7 +773,6 @@ namespace MauiApp1.Services
                     }
                 }
 
-                // Сохраняем в PNG
                 var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
                 var fileName = $"{safeName}_контурная_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                 var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
@@ -1091,10 +790,6 @@ namespace MauiApp1.Services
             }
         }
 
-
-        /// <summary>
-        /// Сохраняет контурную схему постранично
-        /// </summary>
         public List<string> SavePatternAsOutlinePages(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -1129,10 +824,8 @@ namespace MauiApp1.Services
                     using (var bitmap = new SKBitmap(pageWidthPx, pageHeightPx))
                     using (var canvas = new SKCanvas(bitmap))
                     {
-                        // Белый фон
                         canvas.Clear(SKColors.White);
 
-                        // Рисуем символы
                         if (showSymbols && cellSize >= 15)
                         {
                             for (int y = startY; y < endY; y++)
@@ -1161,7 +854,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Рисуем сетку
                         if (showGrid && cellSize >= 8)
                         {
                             using (var gridPaint = new SKPaint
@@ -1189,7 +881,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Добавляем номер страницы
                         using (var textPaint = new SKPaint
                         {
                             Color = SKColors.Black,
@@ -1201,7 +892,6 @@ namespace MauiApp1.Services
                             canvas.DrawText(pageInfo, 10, pageHeightPx - 10, textPaint);
                         }
 
-                        // Сохраняем
                         var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
                         var fileName = $"{safeName}_контурная_стр{pageY + 1}_кол{pageX + 1}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                         var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
@@ -1222,9 +912,7 @@ namespace MauiApp1.Services
 
             return result;
         }
-        /// <summary>
-        /// Сохраняет схему на страницы A4 (легенда на отдельной странице, все страницы одинакового размера)
-        /// </summary>
+
         public List<string> SavePatternAsA4Pages(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -1236,40 +924,32 @@ namespace MauiApp1.Services
         {
             var result = new List<string>();
 
-            // Размер A4 в пикселях (при 96 DPI: 794x1123)
             int a4WidthPx = 794;
             int a4HeightPx = 1123;
 
-            // Отступы на странице (поля)
             int margin = 40;
             int availableWidth = a4WidthPx - margin * 2;
             int availableHeight = a4HeightPx - margin * 2;
 
-            // Количество страниц по горизонтали и вертикали
             int pagesX = (int)Math.Ceiling((double)pattern.Width / stitchesPerPage);
             int pagesY = (int)Math.Ceiling((double)pattern.Height / stitchesPerPage);
 
-            // Размер одной страницы в крестиках (одинаковый для всех)
             int pageWidthStitches = stitchesPerPage;
             int pageHeightStitches = stitchesPerPage;
 
             int totalPages = pagesX * pagesY;
             int currentPage = 0;
 
-            // Легенда будет на отдельной странице в конце
             bool hasLegendPage = true;
 
-            // Безопасное имя для файлов
             var safeName = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
 
-            // Подготавливаем данные
             var skColors = new SKColor[colors.Count];
             for (int i = 0; i < colors.Count; i++)
             {
                 skColors[i] = new SKColor((byte)colors[i].Red, (byte)colors[i].Green, (byte)colors[i].Blue);
             }
 
-            // Сжимаем 2D матрицу в 1D массив
             int totalCells = pattern.Width * pattern.Height;
             var colorIndices = new int[totalCells];
             for (int y = 0; y < pattern.Height; y++)
@@ -1280,7 +960,6 @@ namespace MauiApp1.Services
                 }
             }
 
-            // 1. Сохраняем все страницы со схемой (одинакового размера)
             for (int pageY = 0; pageY < pagesY; pageY++)
             {
                 for (int pageX = 0; pageX < pagesX; pageX++)
@@ -1300,20 +979,17 @@ namespace MauiApp1.Services
                     {
                         canvas.Clear(SKColors.White);
 
-                        // Рисуем рамку страницы (для обрезки при склейке)
                         using (var cropPaint = new SKPaint { Color = SKColors.LightGray, StrokeWidth = 1, IsStroke = true })
                         {
                             canvas.DrawRect(SKRect.Create(2, 2, a4WidthPx - 4, a4HeightPx - 4), cropPaint);
                         }
 
-                        // Центрируем схему на странице
                         float offsetX = margin + (availableWidth - actualPageWidthPx) / 2;
                         float offsetY = margin + (availableHeight - actualPageHeightPx) / 2;
 
                         canvas.Save();
                         canvas.Translate(offsetX, offsetY);
 
-                        // Рисуем клетки
                         for (int y = startY; y < endY; y++)
                         {
                             for (int x = startX; x < endX; x++)
@@ -1332,7 +1008,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Рисуем символы
                         if (showSymbols && cellSize >= 15)
                         {
                             for (int y = startY; y < endY; y++)
@@ -1363,7 +1038,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Рисуем сетку
                         if (showGrid && cellSize >= 8)
                         {
                             using (var gridPaint = new SKPaint
@@ -1393,35 +1067,30 @@ namespace MauiApp1.Services
 
                         canvas.Restore();
 
-                        // Метки для склейки (угловые метки)
                         using (var markPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 2, IsStroke = true })
                         {
-                            // Верхний левый угол
                             canvas.DrawLine(10, 10, 30, 10, markPaint);
                             canvas.DrawLine(10, 10, 10, 30, markPaint);
-                            // Верхний правый угол
+
                             canvas.DrawLine(a4WidthPx - 10, 10, a4WidthPx - 30, 10, markPaint);
                             canvas.DrawLine(a4WidthPx - 10, 10, a4WidthPx - 10, 30, markPaint);
-                            // Нижний левый угол
+
                             canvas.DrawLine(10, a4HeightPx - 10, 30, a4HeightPx - 10, markPaint);
                             canvas.DrawLine(10, a4HeightPx - 10, 10, a4HeightPx - 30, markPaint);
-                            // Нижний правый угол
+
                             canvas.DrawLine(a4WidthPx - 10, a4HeightPx - 10, a4WidthPx - 30, a4HeightPx - 10, markPaint);
                             canvas.DrawLine(a4WidthPx - 10, a4HeightPx - 10, a4WidthPx - 10, a4HeightPx - 30, markPaint);
                         }
 
-                        // Номер страницы (для склейки)
                         using (var pagePaint = new SKPaint { Color = SKColors.Black, TextSize = 14, IsAntialias = true, Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold) })
                         {
                             string pageLabel = $"{pageY + 1} / {pagesY}";
                             canvas.DrawText(pageLabel, a4WidthPx - 60, a4HeightPx - 20, pagePaint);
 
-                            // Координаты страницы
                             string coordLabel = $"({pageX + 1};{pageY + 1})";
                             canvas.DrawText(coordLabel, a4WidthPx - 60, a4HeightPx - 40, pagePaint);
                         }
 
-                        // Сохраняем страницу
                         var fileName = $"{safeName}_A4_стр{pageY + 1}_{pageX + 1}_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                         var filePath = Path.Combine(FileSystem.CacheDirectory, fileName);
 
@@ -1439,7 +1108,6 @@ namespace MauiApp1.Services
                 }
             }
 
-            // 2. Сохраняем отдельную страницу с легендой (цветов)
             if (hasLegendPage)
             {
                 using (var bitmap = new SKBitmap(a4WidthPx, a4HeightPx))
@@ -1447,13 +1115,11 @@ namespace MauiApp1.Services
                 {
                     canvas.Clear(SKColors.White);
 
-                    // Рамка
                     using (var borderPaint = new SKPaint { Color = SKColors.Black, StrokeWidth = 2, IsStroke = true })
                     {
                         canvas.DrawRect(SKRect.Create(10, 10, a4WidthPx - 20, a4HeightPx - 20), borderPaint);
                     }
 
-                    // Заголовок
                     using (var titlePaint = new SKPaint
                     {
                         Color = SKColors.Black,
@@ -1478,7 +1144,6 @@ namespace MauiApp1.Services
                         canvas.DrawText($"Размер клетки: {cellSize}px", 50, 170, subPaint);
                     }
 
-                    // Таблица цветов
                     float startY = 210;
                     float rowHeight = 45;
                     float colSymbol = 60;
@@ -1487,7 +1152,6 @@ namespace MauiApp1.Services
                     float colDMC = 100;
                     float colCount = 120;
 
-                    // Заголовки таблицы
                     using (var headerPaint = new SKPaint
                     {
                         Color = SKColors.White,
@@ -1513,7 +1177,6 @@ namespace MauiApp1.Services
                         var color = colors[i];
                         var skColor = new SKColor((byte)color.Red, (byte)color.Green, (byte)color.Blue);
 
-                        // Символ
                         using (var symbolPaint = new SKPaint
                         {
                             Color = GetContrastColorForPng(skColor),
@@ -1526,7 +1189,6 @@ namespace MauiApp1.Services
                             canvas.DrawText(color.Symbol ?? "●", 50 + 20, currentY + 15, symbolPaint);
                         }
 
-                        // Образец цвета
                         using (var colorPaint = new SKPaint { Color = skColor })
                         {
                             canvas.DrawRect(SKRect.Create(50 + colSymbol, currentY, 25, 25), colorPaint);
@@ -1536,7 +1198,6 @@ namespace MauiApp1.Services
                             canvas.DrawRect(SKRect.Create(50 + colSymbol, currentY, 25, 25), borderPaint);
                         }
 
-                        // Информация
                         using (var textPaint = new SKPaint { Color = SKColors.Black, TextSize = 11, IsAntialias = true })
                         {
                             canvas.DrawText(color.ColorHex, 50 + colSymbol + colColor, currentY + 17, textPaint);
@@ -1546,7 +1207,6 @@ namespace MauiApp1.Services
 
                         currentY += rowHeight;
 
-                        // Если не помещается на страницу
                         if (currentY > a4HeightPx - 50 && i < colors.Count - 1)
                         {
                             using (var notePaint = new SKPaint { Color = SKColors.Red, TextSize = 10, IsAntialias = true })
@@ -1557,7 +1217,6 @@ namespace MauiApp1.Services
                         }
                     }
 
-                    // Сохраняем легенду
                     var legendFileName = $"{safeName}_легенда_{DateTime.Now:yyyyMMdd_HHmmss}.png";
                     var legendFilePath = Path.Combine(FileSystem.CacheDirectory, legendFileName);
 
@@ -1577,24 +1236,21 @@ namespace MauiApp1.Services
             return result;
         }
 
-        private List<EmbroideryColor> GetUniqueColorsOnPage(int[,] colorMatrix, List<EmbroideryColor> colors, int startX, int endX, int startY, int endY)
-        {
-            var uniqueIndices = new HashSet<int>();
+        //private List<EmbroideryColor> GetUniqueColorsOnPage(int[,] colorMatrix, List<EmbroideryColor> colors, int startX, int endX, int startY, int endY)
+        //{
+        //    var uniqueIndices = new HashSet<int>();
 
-            for (int y = startY; y < endY; y++)
-            {
-                for (int x = startX; x < endX; x++)
-                {
-                    uniqueIndices.Add(colorMatrix[x, y]);
-                }
-            }
+        //    for (int y = startY; y < endY; y++)
+        //    {
+        //        for (int x = startX; x < endX; x++)
+        //        {
+        //            uniqueIndices.Add(colorMatrix[x, y]);
+        //        }
+        //    }
 
-            return uniqueIndices.Select(i => colors[i]).ToList();
-        }
+        //    return uniqueIndices.Select(i => colors[i]).ToList();
+        //}
 
-        /// <summary>
-        /// Сохраняет контурную схему на страницы A4 (легенда только на первой странице, одинаковый масштаб)
-        /// </summary>
         public List<string> SavePatternAsOutlineA4Pages(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -1656,7 +1312,6 @@ namespace MauiApp1.Services
                         canvas.Save();
                         canvas.Translate(20, 30);
 
-                        // Рисуем символы
                         if (showSymbols && cellSize >= 15)
                         {
                             for (int y = startY; y < endY; y++)
@@ -1686,7 +1341,6 @@ namespace MauiApp1.Services
                             }
                         }
 
-                        // Рисуем сетку
                         if (showGrid && cellSize >= 8)
                         {
                             using (var gridPaint = new SKPaint
@@ -1715,8 +1369,7 @@ namespace MauiApp1.Services
                         }
 
                         canvas.Restore();
-                        //ProcessImage
-                        // Легенда только на первой странице (цветная для контраста)
+
                         if (hasLegend)
                         {
                             float legendX = pageWidthPx + 40;
@@ -1820,44 +1473,29 @@ namespace MauiApp1.Services
             return result;
         }
 
+        //private string FindDMCAndGamma(SKColor color)
+        //{
+        //    var match = FlossLibrary.FindClosest(color.Red, color.Green, color.Blue);
+        //    if (match != null)
+        //    {
+        //        // Можно сохранить оба кода
+        //        return $"{match.CodeDmc} / {match.CodeGamma}";
+        //    }
+        //    return "— / —";
+        //}
 
-        // Вместо старого FindClosestDMC
-        private string FindDMCAndGamma(SKColor color)
-        {
-            var match = FlossLibrary.FindClosest(color.Red, color.Green, color.Blue);
-            if (match != null)
-            {
-                // Можно сохранить оба кода
-                return $"{match.CodeDmc} / {match.CodeGamma}";
-            }
-            return "— / —";
-        }
-
-        // Или отдельно для каждого поля в EmbroideryColor
         private (string dmc, string gamma) FindFlossCodes(SKColor color)
         {
             var match = FlossLibrary.FindClosest(color.Red, color.Green, color.Blue);
             return (match?.CodeDmc ?? "—", match?.CodeGamma ?? "—");
         }
 
-
-
-
-
-
         private SKColor GetContrastColorForPng(SKColor color)
         {
-            // Для PNG используем чёрный или белый текст
             double luminance = (0.299 * color.Red + 0.587 * color.Green + 0.114 * color.Blue);
             return luminance > 128 ? SKColors.Black : SKColors.White;
         }
 
-        /// <summary>
-        /// Автоматически экспортирует схему в формат A4 PNG.
-        /// Сам решает: одна страница или несколько.
-        /// Легенда встраивается рядом со схемой (если помещается) или на отдельную страницу.
-        /// cellSize = 40px, формат A4 (794x1123 px @ 96dpi).
-        /// </summary>
         public List<string> ExportToA4Auto(
             EmbroideryPattern pattern,
             List<EmbroideryColor> colors,
@@ -1868,31 +1506,26 @@ namespace MauiApp1.Services
             const int a4W = 794;
             const int a4H = 1123;
             const int margin = 30;
-            const int legendW = 200;   // ширина колонки легенды
-            const int legendRowH = 36; // высота одной строки легенды
+            const int legendW = 200;
+            const int legendRowH = 36;
 
             int availW = a4W - margin * 2;
             int availH = a4H - margin * 2;
 
-            // Сколько крестиков помещается на одну страницу без легенды
             int maxCols = availW / cellSize;
             int maxRows = availH / cellSize;
 
-            // Сколько крестиков помещается с легендой сбоку
             int availWwithLegend = availW - legendW - 10;
             int maxColsWithLegend = availWwithLegend / cellSize;
 
-            // Высота легенды: заголовок ~60px + строки
             int legendHeaderH = 60;
             int legendTotalH = legendHeaderH + colors.Count * legendRowH;
 
-            // Проверяем: схема + легенда влезает на одну страницу?
             bool fitsOnOnePage =
                 pattern.Width <= maxColsWithLegend &&
                 pattern.Height <= maxRows &&
                 legendTotalH <= availH;
 
-            // Если схема маленькая и помещается целиком с легендой — одна страница
             if (fitsOnOnePage)
             {
                 var page = RenderA4Page(
@@ -1911,13 +1544,12 @@ namespace MauiApp1.Services
                 return new List<string> { path };
             }
 
-            // Иначе — разбиваем на страницы без легенды, легенда — отдельной страницей
             var result = new List<string>();
             var safeName2 = string.Join("_", pattern.Name.Split(Path.GetInvalidFileNameChars()));
 
             int pagesX = (int)Math.Ceiling((double)pattern.Width / maxCols);
             int pagesY = (int)Math.Ceiling((double)pattern.Height / maxRows);
-            int totalPages = pagesX * pagesY + 1; // +1 для легенды
+            int totalPages = pagesX * pagesY + 1; 
             int pageNum = 0;
 
             for (int py = 0; py < pagesY; py++)
@@ -1945,7 +1577,6 @@ namespace MauiApp1.Services
                 }
             }
 
-            // Страница легенды
             pageNum++;
             var legendPage = RenderLegendPage(pattern, colors, a4W, a4H, margin, cellSize, pageNum, totalPages);
             var legendPath = Path.Combine(FileSystem.CacheDirectory,
@@ -1973,16 +1604,14 @@ namespace MauiApp1.Services
 
             var bitmap = new SKBitmap(a4W, a4H);
             using var canvas = new SKCanvas(bitmap);
-            canvas.Clear(SKColors.White);  // Белый фон для всех режимов
+            canvas.Clear(SKColors.White);
 
-            // Рамка
             using (var borderPaint = new SKPaint { Color = new SKColor(200, 200, 200), StrokeWidth = 1, IsStroke = true })
                 canvas.DrawRect(SKRect.Create(5, 5, a4W - 10, a4H - 10), borderPaint);
 
             int schemaW = srcW * cellSize;
             int schemaH = srcH * cellSize;
 
-            // Отступ для схемы
             int totalContentW = schemaW + (includeLegend ? legendW + 10 : 0);
             int offsetX = margin + Math.Max(0, ((a4W - margin * 2 - (includeLegend ? legendW + 10 : 0)) - schemaW) / 2);
             int offsetY = margin + Math.Max(0, (a4H - margin * 2 - 40 - schemaH) / 2);
@@ -1990,7 +1619,6 @@ namespace MauiApp1.Services
             canvas.Save();
             canvas.Translate(offsetX, offsetY);
 
-            // --- Рисуем клетки ---
             for (int y = 0; y < srcH; y++)
             {
                 for (int x = 0; x < srcW; x++)
@@ -2000,19 +1628,15 @@ namespace MauiApp1.Services
                     float top = y * cellSize;
                     var rect = SKRect.Create(left, top, cellSize, cellSize);
 
-                    // ТОЛЬКО для цветного режима закрашиваем клетки
                     if (!isOutline)
                     {
                         using var fillPaint = new SKPaint { Color = skColors[ci], IsAntialias = false };
                         canvas.DrawRect(rect, fillPaint);
                     }
-                    // В контурном режиме НЕ закрашиваем - оставляем белый фон
 
-                    // Символ (всегда рисуем)
                     var symbol = colors[ci].Symbol;
                     if (!string.IsNullOrEmpty(symbol))
                     {
-                        // Для контурного режима символы всегда чёрные (максимальный контраст)
                         var textColor = isOutline ? SKColors.Black : GetContrastColorForPng(skColors[ci]);
                         using var textPaint = new SKPaint
                         {
@@ -2029,7 +1653,6 @@ namespace MauiApp1.Services
                 }
             }
 
-            // --- Сетка (чёткие чёрные линии) ---
             using (var gridPaint = new SKPaint
             {
                 Color = SKColors.Black,
@@ -2044,7 +1667,6 @@ namespace MauiApp1.Services
                     canvas.DrawLine(0, y * cellSize, schemaW, y * cellSize, gridPaint);
             }
 
-            // --- Жирные линии каждые 10 клеток ---
             using (var thickPaint = new SKPaint
             {
                 Color = SKColors.Black,
@@ -2061,7 +1683,6 @@ namespace MauiApp1.Services
 
             canvas.Restore();
 
-            // --- Легенда сбоку (если нужна) ---
             if (includeLegend)
             {
                 int lx = offsetX + schemaW + 10;
@@ -2105,7 +1726,6 @@ namespace MauiApp1.Services
                 }
             }
 
-            // --- Колонтитул ---
             using (var footerPaint = new SKPaint { Color = SKColors.Gray, TextSize = 10, IsAntialias = true })
             {
                 string info = totalPages > 1
@@ -2149,7 +1769,6 @@ namespace MauiApp1.Services
             }
             y += 30;
 
-            // Таблица — 2 колонки
             int rowH = 38;
             int colW = (a4W - margin * 2) / 2;
             int col = 0;
@@ -2184,7 +1803,7 @@ namespace MauiApp1.Services
                 col++;
                 if (col >= 2) { col = 0; y += rowH; }
 
-                if (y > a4H - margin - 40) break; // не выходим за лист
+                if (y > a4H - margin - 40) break;
             }
 
             using (var footerPaint = new SKPaint { Color = SKColors.Gray, TextSize = 10, IsAntialias = true })
@@ -2192,8 +1811,6 @@ namespace MauiApp1.Services
 
             return bitmap;
         }
-
-        //RenderA4Page
 
         private void SaveBitmap(SKBitmap bitmap, string filePath)
         {
